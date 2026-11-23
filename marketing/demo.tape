@@ -1,10 +1,10 @@
 # Terminal demo GIF, recorded with VHS: https://github.com/charmbracelet/vhs
 #   brew install vhs
-#   sh market/make-demo-media.sh      # creates market/demo/ with talk.mp4, users.json
-#   vhs market/demo.tape              # writes market/nls-demo.gif
+#   sh marketing/make-demo-media.sh      # creates marketing/demo/ (talk.mp4, users.json, src/, app.log)
+#   vhs marketing/demo.tape              # writes marketing/nls-demo.gif
 # Requires nls on PATH (make install).
 
-Output market/nls-demo.gif
+Output marketing/nls-demo.gif
 
 Set Shell zsh
 Set FontSize 20
@@ -15,7 +15,7 @@ Set TypingSpeed 45ms
 Set Theme "Catppuccin Mocha"
 
 Hide
-Type "cd market/demo && clear"
+Type "cd marketing/demo && clear"
 Enter
 Show
 
@@ -38,6 +38,22 @@ Enter
 Sleep 2.5s
 
 Type `nls -x -y jq "get names from users.json where age > 30"`
+Sleep 400ms
+Enter
+Sleep 3.5s
+
+# 4. grep: file types, case, context
+Hide
+Type "clear"
+Enter
+Show
+
+Type `nls -x -y grep "which python files contain TODO, ignoring case"`
+Sleep 400ms
+Enter
+Sleep 2.5s
+
+Type `nls -x -y grep "find ERROR in app.log with 1 line of context"`
 Sleep 400ms
 Enter
 Sleep 3.5s
