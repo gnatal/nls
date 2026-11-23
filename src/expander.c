@@ -9,6 +9,8 @@
  *                        no target format; "!ext" forces it
  *   {OUT_FILE|ext|sfx}   ... and inserts suffix `sfx` before the extension
  *   {COUNT}              " | length" if the prompt asked for a count (jq)
+ *   {FLAGS|base|allowed} "-<base letters + modifiers>" (grep), see
+ *                        build_flags(); empty (and eats one space) if none
  *   << ... >>            optional group: emitted only if every placeholder
  *                        inside resolved to a user-supplied value
  *
@@ -134,6 +136,76 @@ static bool synth_out_file(const ParseContext *ctx, const char *ext_spec, size_t
     return true;
 }
 
+/* Does a FILE value name a regular file (rather than a directory)? */
+static bool looks_like_regular_file(const char *f) {
+    size_t n = strlen(f);
+    if (n == 0 || f[n - 1] == '/' || strcmp(f, ".") == 0 || strcmp(f, "..") == 0) return false;
+    const char *slash = strrchr(f, '/');
+    const char *base = slash ? slash + 1 : f;
+    const char *dot = strrchr(base, '.');
+    return dot && dot != base && dot[1] != '\0';
+}
+
+static void drop_char(char *s, char c) {
+    char *p = strchr(s, c);
+    if (p) memmove(p, p + 1, strlen(p));
+}
+
+/*
+ * {FLAGS|base|allowed}: "-" + base letters + the user's modifier letters
+ * (ctx->flags) that are in `allowed`; empty if there are none.
+ *  - 'r' is dropped when every FILE is a regular file (grep -n x app.log)
+ *  - 'F' (fixed string) replaces 'E'
+ *  - 'v' with 'l' becomes 'L' (files that don't match); 'v' cancels 'o'
+ * A modifier the template can't express is an error, not silently dropped.
+ */
+static bool build_flags(const ParseContext *ctx, const char *rest, const char *close,
+                        char *dst, size_t dst_size, char *err, size_t err_size) {
+    char letters[32] = "";
+    const char *allowed = "";
+    size_t allowed_len = 0;
+    if (*rest == '|') {
+        const char *base = rest + 1;
+        const char *bar = memchr(base, '|', (size_t)(close - base));
+        size_t base_len = (size_t)((bar ? bar : close) - base);
+        if (base_len >= sizeof letters) base_len = sizeof letters - 1;
+        memcpy(letters, base, base_len);
+        letters[base_len] = '\0';
+        if (bar) { allowed = bar + 1; allowed_len = (size_t)(close - allowed); }
+    }
+
+    int nfiles = nl_count_slots(ctx, SLOT_FILE);
+    bool all_regular = nfiles > 0;
+    for (int k = 0; k < nfiles; k++)
+        if (!looks_like_regular_file(nl_find_slot(ctx, SLOT_FILE, k))) all_regular = false;
+    if (all_regular) drop_char(letters, 'r');
+
+    for (const char *f = ctx->flags; *f; f++) {
+        if (!memchr(allowed, *f, allowed_len)) {
+            static const struct { char f; const char *what; } names[] = {
+                { 'i', "ignoring case" }, { 'w', "whole-word matching" },
+                { 'v', "inverted matching" }, { 'F', "fixed-string matching" },
+            };
+            const char *what = "that option";
+            for (size_t k = 0; k < sizeof names / sizeof names[0]; k++)
+                if (names[k].f == *f) what = names[k].what;
+            set_err(err, err_size, "%s isn't supported for this command", what);
+            return false;
+        }
+        if (*f == 'v' && strchr(letters, 'l')) { *strchr(letters, 'l') = 'L'; continue; }
+        if (*f == 'v' && strchr(letters, 'o')) { drop_char(letters, 'o'); }
+        if (*f == 'F') drop_char(letters, 'E');
+        if (!strchr(letters, *f) && strlen(letters) + 1 < sizeof letters) {
+            size_t n = strlen(letters);
+            letters[n] = *f;
+            letters[n + 1] = '\0';
+        }
+    }
+
+    int n = snprintf(dst, dst_size, letters[0] ? "-%s" : "%s", letters);
+    return n >= 0 && (size_t)n < dst_size;
+}
+
 /*
  * Expand template text [p, end) into `o`.
  * *placeholders / *all_user track whether an optional group may be emitted.
@@ -192,6 +264,15 @@ static bool expand_range(const ParseContext *ctx, const char *p, const char *end
             if (!nl_shell_quote(value, quoted, sizeof quoted)) { o->overflow = true; return true; }
             out_puts(o, quoted);
             (*placeholders)++;
+            p = close + 1;
+            continue;
+        }
+
+        /* ---- {FLAGS|base|allowed}: grep-style option cluster ---- */
+        if (name_len == 5 && strncmp(name, "FLAGS", 5) == 0 && (*rest == '|' || *rest == '}')) {
+            if (!build_flags(ctx, rest, close, value, sizeof value, err, err_size)) return false;
+            if (value[0]) out_puts(o, value);
+            else if (close + 1 < end && close[1] == ' ') close++; /* no flags: drop the space */
             p = close + 1;
             continue;
         }

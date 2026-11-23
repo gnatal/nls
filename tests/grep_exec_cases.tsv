@@ -1,0 +1,17 @@
+# prompt	expected output (lines sorted, then whitespace-normalized; run in tests/fixtures/grep/)
+find ERROR in app.log	3:2026-11-01 10:00:02 ERROR connection refused 7:2026-11-01 10:00:06 ERROR disk full
+find ERROR in app.log ignoring case	3:2026-11-01 10:00:02 ERROR connection refused 5:2026-11-01 10:00:04 error timeout after 3000ms 7:2026-11-01 10:00:06 ERROR disk full
+which files contain 'TODO' in src/	src/main.c src/util.py
+list files not containing 'TODO' in src/	src/notes.txt
+count lines matching 'ERROR' in app.log	2
+how many times does TODO appear in src/	2
+search python files for TODO	./src/util.py:2:# TODO: handle errors
+find 'main' in src/*.c	src/main.c:3:int main(void) {
+find foo as a whole word in src/main.c	4: int foo = 1, foobar = 2; /* FIXME */ 5: printf("a.b %d\n", foo + foobar);
+search for 'a.b' literally in src/main.c	5: printf("a.b %d\n", foo + foobar);
+count lines without 'INFO' in app.log	4
+first 1 match of 'INFO' in app.log	1:2026-11-01 10:00:00 INFO server started
+show 'connection' and 1 line after in app.log	3:2026-11-01 10:00:02 ERROR connection refused 4-2026-11-01 10:00:03 INFO retrying in 250ms
+show 1 line before 'disk' in app.log	6-2026-11-01 10:00:05 INFO recovered 7:2026-11-01 10:00:06 ERROR disk full
+extract only the matching part of '[0-9]+ms' from app.log	250ms 3000ms
+find TODO or FIXME in the src folder	src/main.c:2:/* TODO: parse flags */ src/main.c:4: int foo = 1, foobar = 2; /* FIXME */ src/util.py:2:# TODO: handle errors

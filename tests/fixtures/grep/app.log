@@ -1,0 +1,7 @@
+2026-11-01 10:00:00 INFO server started
+2026-11-01 10:00:01 DEBUG loading config
+2026-11-01 10:00:02 ERROR connection refused
+2026-11-01 10:00:03 INFO retrying in 250ms
+2026-11-01 10:00:04 error timeout after 3000ms
+2026-11-01 10:00:05 INFO recovered
+2026-11-01 10:00:06 ERROR disk full

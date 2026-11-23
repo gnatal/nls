@@ -96,3 +96,32 @@ jq	filter users.json where .status is	!ERR
 jq	get .a;rm in data.json	!ERR
 ffmpeg	cut in.mp4 from 1 to 3 seconds	ffmpeg -ss 1 -to 3 -i in.mp4 -c copy in_cut.mp4
 ffmpeg	cut in.mp4 between 2 and 5s	ffmpeg -ss 2 -to 5 -i in.mp4 -c copy in_cut.mp4
+# ---- grep ----
+grep	search for 'TODO' in src/	grep -rnE -e TODO src/
+grep	find TODO in src/	grep -rnE -e TODO src/
+grep	'TODO' in src/	grep -rnE -e TODO src/
+grep	search for error in app.log	grep -nE -e error app.log
+grep	find all lines containing ERROR in app.log ignoring case	grep -nEi -e ERROR app.log
+grep	which files contain 'TODO' in src/	grep -rlE -e TODO src/
+grep	list files not containing 'license' in src/	grep -rLE -e license src/
+grep	count lines matching 'ERROR' in app.log	grep -cE -e ERROR app.log
+grep	how many times does 'TODO' appear in src/	grep -rhoE -e TODO src/ | wc -l
+grep	count occurrences of TODO in src/	grep -rhoE -e TODO src/ | wc -l
+grep	search python files for TODO	grep -rnE --include='*.py' -e TODO .
+grep	find 'import' in *.py files	grep -rnE --include='*.py' -e import .
+grep	find 'main' in src/*.c	grep -rnE --include='*.c' -e main src/
+grep	search for 'x' in .py files	grep -rnE --include='*.py' -e x .
+grep	find foo as a whole word in main.c	grep -nEw -e foo main.c
+grep	search for 'a.b' literally in notes.txt	grep -nF -e a.b notes.txt
+grep	show lines without 'debug' in app.log	grep -nEv -e debug app.log
+grep	find 'timeout' in app.log with 3 lines of context	grep -nE -C 3 -e timeout app.log
+grep	show 'panic' and 5 lines after in app.log	grep -nE -A 5 -e panic app.log
+grep	show 2 lines before 'Traceback' in app.log	grep -nE -B 2 -e Traceback app.log
+grep	first 5 matches of 'ERROR' in app.log	grep -nE -m 5 -e ERROR app.log
+grep	find TODO or FIXME in the src folder	grep -rnE -e TODO -e FIXME src
+grep	extract only the matching part of '[0-9]+ms' from app.log	grep -oE -e '[0-9]+ms' app.log
+grep	search for 404 in access.log	grep -nE -e 404 access.log
+grep	search for '-v' in src/	grep -rnE -e -v src/
+grep	search 'foo' in 'my notes/' and 'b.txt'	grep -rnE -e foo 'my notes/' b.txt
+grep	search 'a;rm -rf ~' in .	grep -rnE -e 'a;rm -rf ~' .
+grep	search in src/	!ERR

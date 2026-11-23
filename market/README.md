@@ -115,5 +115,5 @@ Wording rules:
 - [ ] A Homebrew tap (`brew install <you>/tap/nls`) lowers friction a lot
 - [ ] Use only royalty-free media in demos. `make-demo-media.sh` generates
       it, so don't record with real songs or videos.
-- [ ] Have 3–5 "what's next" items ready (grep/grop support, AND conditions,
+- [ ] Have 3–5 "what's next" items ready (grep support, AND conditions,
       nested arrays). Launch threads always ask.

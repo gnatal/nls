@@ -1,6 +1,7 @@
 # nls — natural language shell
 
-`nls` turns plain-English requests into exact `ffmpeg` and `jq` commands.
+`nls` turns plain-English requests into exact `ffmpeg`, `jq` and `grep`
+commands.
 It works fully offline: no LLM, no network, no runtime dependencies. It is
 written in C11 using only the standard library, and every command template is
 compiled into the binary.
@@ -13,7 +14,7 @@ $ nls jq "get .name from users.json where .age > 30"
 jq 'map(select(.age > 30) | .name)' users.json
 ```
 
-v0.1 supports **ffmpeg** and **jq**. `grep` and `grop` are planned
+Supported tools: **ffmpeg**, **jq** and **grep**
 (see `natural_language_shell_architecture_plan.md`).
 
 ## Build
@@ -23,6 +24,7 @@ make          # cc -std=c11 -O2 -Wall -Wextra -pedantic -Werror
 make test     # all tests (each execution suite skips if its tool is missing):
               #  - command-string goldens        tests/cases.tsv
               #  - jq: run on tests/fixtures/*.json     tests/jq_exec_cases.tsv
+              #  - grep: run on tests/fixtures/grep/    tests/grep_exec_cases.tsv
               #  - ffmpeg: run on generated media,
               #    verified with ffprobe          tests/ffmpeg_exec_cases.tsv
 make test-ffmpeg  # only the ffmpeg execution tests (~10 s)
@@ -78,8 +80,13 @@ Quote the whole prompt so your shell doesn't interpret `>`, `'` or `*`.
 | `jq "count users.json by .status"` | `jq 'group_by(.status) \| map({key: …, count: length})' users.json` |
 | `jq "sort users.json by .age descending"` | `jq 'sort_by(.age) \| reverse' users.json` |
 | `jq "convert users.json to csv with .name .email"` | `jq -r '.[] \| [.name, .email] \| @csv' users.json` |
+| `grep "find TODO or FIXME in the src folder"` | `grep -rnE -e TODO -e FIXME src` |
+| `grep "which python files contain 'import os'"` | `grep -rlE --include='*.py' -e 'import os' .` |
+| `grep "list files not containing 'license' in src/"` | `grep -rLE -e license src/` |
+| `grep "find ERROR in app.log ignoring case with 3 lines of context"` | `grep -nEi -C 3 -e ERROR app.log` |
+| `grep "how many times does TODO appear in src/"` | `grep -rhoE -e TODO src/ \| wc -l` |
 
-Run `nls --list` to see all templates (about 30 per tool).
+Run `nls --list` to see all templates.
 
 ## How it works
 
@@ -109,6 +116,12 @@ Run `nls --list` to see all templates (about 30 per tool).
      `.status`. Plurals are matched too (emails, statuses, countries).
    - "how many" / "count" / "number of" together with a filter adds
      `| length`: `map(select(.email != null)) | length`.
+   - For grep, modifier phrases ("ignore case", "whole word",
+     "not containing", "literally") become flags (`-i -w -v -F`) on top of
+     the chosen mode (search, list files, count, context, ...). Patterns can
+     be quoted or bare after words like "for", "containing" or "find";
+     "python files" / `*.py` become `--include`, and `-r` is dropped when
+     only regular files are searched.
 3. **Expander** (`src/expander.c`): fills the winning template.
    - Placeholders: `{TYPE:i}`, `{TYPE:i|default}`, `{OUT_FILE|ext|suffix}` and
      `<< optional >>` groups.
@@ -122,6 +135,8 @@ Run `nls --list` to see all templates (about 30 per tool).
   pass `-y`.
 - Files and strings are always shell-quoted. jq string values are passed with
   `--arg`, never spliced into the jq program.
+- grep patterns are passed with `-e`, so a pattern starting with `-` is never
+  read as an option.
 - JSON paths may only contain `[A-Za-z0-9_.[]?]`. A prompt like
   `get .a;rm in data.json` is rejected.
 

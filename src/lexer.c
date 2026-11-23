@@ -456,6 +456,249 @@ static const char *field_for_word(const JsonInfo *json, const char *w) {
     return NULL;
 }
 
+/* ------------------------------------------------------------------ */
+/* grep                                                               */
+/* ------------------------------------------------------------------ */
+
+/* Modifier phrases. Matched on consecutive raw tokens, consumed (they are
+ * not intent tokens) and recorded as flag letters in ctx->flags. */
+static const struct { char flag; const char *words[4]; } GREP_MODS[] = {
+    { 'i', { "ignore", "case" } },       { 'i', { "ignoring", "case" } },
+    { 'i', { "ignores", "case" } },      { 'i', { "case", "insensitive" } },
+    { 'i', { "case", "insensitively" } },{ 'i', { "case-insensitive" } },
+    { 'i', { "insensitive" } },          { 'i', { "insensitively" } },
+    { 'i', { "caseless" } },             { 'i', { "any", "case" } },
+    { 'i', { "regardless", "of", "case" } },
+    { 'w', { "whole", "word" } },        { 'w', { "whole", "words" } },
+    { 'w', { "whole-word" } },           { 'w', { "full", "word" } },
+    { 'w', { "full", "words" } },        { 'w', { "exact", "word" } },
+    { 'w', { "as", "a", "word" } },
+    { 'F', { "fixed", "string" } },      { 'F', { "fixed", "strings" } },
+    { 'F', { "fixed-string" } },         { 'F', { "literal" } },
+    { 'F', { "literally" } },            { 'F', { "no", "regex" } },
+    { 'F', { "not", "a", "regex" } },    { 'F', { "not", "regex" } },
+    { 'F', { "plain", "text" } },        { 'F', { "exact", "string" } },
+    { 'F', { "exact", "text" } },
+    { 'v', { "not", "containing" } },    { 'v', { "not", "contain" } },
+    { 'v', { "not", "matching" } },      { 'v', { "not", "match" } },
+    { 'v', { "don't", "contain" } },     { 'v', { "dont", "contain" } },
+    { 'v', { "doesn't", "contain" } },   { 'v', { "doesnt", "contain" } },
+    { 'v', { "don't", "match" } },       { 'v', { "dont", "match" } },
+    { 'v', { "doesn't", "match" } },     { 'v', { "doesnt", "match" } },
+    { 'v', { "without" } },              { 'v', { "lacking" } },
+    { 'v', { "invert" } },               { 'v', { "inverted" } },
+};
+
+/* Words that only glue the sentence together in grep mode: -r and -E are
+ * always on, so "recursively", "regex", "lines" etc. carry no intent. */
+static const char *const GREP_FILLER[] = {
+    "lines", "line", "containing", "contain", "contains", "contained", "matching",
+    "match", "matches", "mentioning", "mention", "mentions", "that", "where", "have",
+    "has", "having", "string", "strings", "text", "pattern", "patterns", "regex",
+    "regexp", "expression", "term", "keyword", "word", "words", "all", "every", "any",
+    "current", "directory", "directories", "folder", "folders", "dir", "recursively",
+    "recursive", "subfolders", "subdirectories", "here", "everywhere", "do", "does",
+    "is", "are", "there", "inside", "under", "within", "from", "by", "results",
+    "result", "or", "numbers", "number", "extended", NULL
+};
+
+/* After one of these, a bare word is the search pattern: "search for TODO",
+ * "lines containing error", "the word foo". */
+static const char *const GREP_PATTERN_TRIGGERS[] = {
+    "for", "find", "grep", "search", "containing", "contain", "contains",
+    "matching", "match", "matches", "mentioning", "mention", "mentions", "with",
+    "word", "string", "text", "pattern", "term", "keyword", "regex", "expression",
+    "without", "lacking", NULL
+};
+
+/* "in X", "under X": what may precede a directory name or a quoted path */
+static const char *const GREP_IN_WORDS[] = {
+    "in", "inside", "under", "within", "through", "from", "the", NULL
+};
+
+static const char *const GREP_DIR_NOUNS[] = { "folder", "directory", "dir", NULL };
+
+/* "<type> files": nouns that turn the previous word into an --include filter */
+static const char *const GREP_FILE_NOUNS[] = {
+    "files", "file", "sources", "source", "code", "scripts", "script", NULL
+};
+
+/* Extensions that name a file type on their own (".py", "c files"); also
+ * the 1-char ones the generic name.ext rule in looks_like_file misses. */
+static const char *const GREP_EXTS[] = {
+    "c", "h", "m", "r", "s", "cc", "cpp", "cxx", "hpp", "hh", "py", "js", "mjs",
+    "cjs", "ts", "jsx", "tsx", "go", "rs", "rb", "java", "kt", "swift", "php",
+    "cs", "sh", "bash", "zsh", "pl", "lua", "sql", "md", "txt", "log", "json",
+    "yml", "yaml", "toml", "xml", "html", "htm", "css", "scss", "vue", "ini",
+    "cfg", "conf", "csv", "tsv", "ex", "exs", "hs", "scala", "dart", NULL
+};
+
+static const struct { const char *name; const char *ext; } GREP_LANGS[] = {
+    { "python", "py" },     { "javascript", "js" }, { "typescript", "ts" },
+    { "rust", "rs" },       { "golang", "go" },     { "ruby", "rb" },
+    { "kotlin", "kt" },     { "markdown", "md" },   { "shell", "sh" },
+    { "header", "h" },      { "headers", "h" },     { "c++", "cpp" },
+    { "csharp", "cs" },     { "c#", "cs" },         { "perl", "pl" },
+    { "text", "txt" },      { "elixir", "ex" },     { "haskell", "hs" },
+    { "config", "conf" },   { NULL, NULL }
+};
+
+static void add_flag(ParseContext *ctx, char f) {
+    size_t n = strlen(ctx->flags);
+    if (strchr(ctx->flags, f) || n + 1 >= sizeof ctx->flags) return;
+    ctx->flags[n] = f;
+    ctx->flags[n + 1] = '\0';
+}
+
+/* Length of the modifier phrase starting at toks[i], or 0. */
+static size_t grep_modifier_at(ParseContext *ctx, const RawTok *toks, size_t count, size_t i) {
+    for (size_t m = 0; m < sizeof GREP_MODS / sizeof GREP_MODS[0]; m++) {
+        size_t n = 0;
+        while (n < 4 && GREP_MODS[m].words[n]) {
+            if (i + n >= count || toks[i + n].quoted ||
+                strcmp(toks[i + n].lower, GREP_MODS[m].words[n]) != 0) break;
+            n++;
+        }
+        if (n > 0 && (n == 4 || !GREP_MODS[m].words[n])) {
+            add_flag(ctx, GREP_MODS[m].flag);
+            return n;
+        }
+    }
+    return 0;
+}
+
+/* A file-type word: "py", "python", "c++" -> extension, or NULL. */
+static const char *grep_type_ext(const char *w) {
+    for (size_t i = 0; GREP_LANGS[i].name; i++)
+        if (strcmp(w, GREP_LANGS[i].name) == 0) return GREP_LANGS[i].ext;
+    return in_list(w, GREP_EXTS) ? w : NULL;
+}
+
+static bool is_alnum_word(const char *s, size_t max) {
+    size_t n = strlen(s);
+    if (n == 0 || n > max) return false;
+    for (size_t i = 0; i < n; i++)
+        if (!isalnum((unsigned char)s[i])) return false;
+    return true;
+}
+
+/* The word before toks[i], skipping articles/quantifiers ("for all TODO"). */
+static const char *grep_prev_word(const RawTok *toks, size_t i, size_t *at) {
+    static const char *const skip[] = { "the", "a", "an", "all", "any", "every", NULL };
+    while (i > 0) {
+        i--;
+        if (toks[i].quoted) return NULL;
+        if (!in_list(toks[i].lower, skip)) { if (at) *at = i; return toks[i].lower; }
+    }
+    return NULL;
+}
+
+/* Can a bare word be a search pattern (rather than a word of the request)? */
+static bool grep_pattern_word_ok(ToolId tool, const char *lw) {
+    return !in_list(lw, STOPWORDS) && !in_list(lw, GREP_FILLER) &&
+           !in_list(lw, GREP_FILE_NOUNS) && !in_list(lw, GREP_DIR_NOUNS) &&
+           !is_keyword(tool, lw);
+}
+
+/* Classify toks[i] in grep mode. Returns the number of tokens consumed
+ * (>= 1), or 0 if the token should fall through to intent handling. */
+static size_t classify_grep(ParseContext *ctx, ToolId tool, const RawTok *toks,
+                            size_t count, size_t i) {
+    const char *t = toks[i].text;
+    const char *lw = toks[i].lower;
+    const char *next = i + 1 < count && !toks[i + 1].quoted ? toks[i + 1].lower : NULL;
+    const char *prev = i > 0 && !toks[i - 1].quoted ? toks[i - 1].lower : NULL;
+
+    /* 1. Modifier phrases: "ignore case", "whole word", "not containing" */
+    size_t n = grep_modifier_at(ctx, toks, count, i);
+    if (n) return n;
+
+    /* 2. Current/parent/home directory */
+    if (strcmp(t, ".") == 0 || strcmp(t, "..") == 0 || strcmp(t, "~") == 0 || strcmp(t, "./") == 0) {
+        add_slot(ctx, SLOT_FILE, t);
+        return 1;
+    }
+
+    /* 3. Globs: "*.py" -> --include; "src/ *.py" (no space) -> src/ + --include */
+    const char *star = strstr(t, "*.");
+    if (star && is_alnum_word(star + 2, 8) &&
+        (star == t || (star[-1] == '/' && !memchr(t, '*', (size_t)(star - t))))) {
+        if (star > t) {
+            char dir[NL_MAX_INPUT];
+            snprintf(dir, sizeof dir, "%.*s", (int)(star - t), t);
+            add_slot(ctx, SLOT_FILE, dir);
+        }
+        add_slot(ctx, SLOT_EXT, lw + (star - t) + 2);
+        return next && in_list(next, GREP_FILE_NOUNS) ? 2 : 1; /* "*.py files" */
+    }
+
+    /* 4. ".py" / ".py files": a file type, unless it's a dotfile (.env) */
+    if (lw[0] == '.' && is_alnum_word(lw + 1, 8)) {
+        bool noun = next && in_list(next, GREP_FILE_NOUNS);
+        if (noun || in_list(lw + 1, GREP_EXTS)) {
+            add_slot(ctx, SLOT_EXT, lw + 1);
+            return noun ? 2 : 1;
+        }
+        add_slot(ctx, SLOT_FILE, t);
+        return 1;
+    }
+
+    /* 5. "python files", "c code", "log files" */
+    if (next && in_list(next, GREP_FILE_NOUNS)) {
+        const char *ext = grep_type_ext(lw);
+        if (ext) { add_slot(ctx, SLOT_EXT, ext); return 2; }
+    }
+
+    /* 6. "in the src folder", "in directory logs" */
+    if (next && in_list(next, GREP_DIR_NOUNS) && prev && in_list(prev, GREP_IN_WORDS) &&
+        grep_pattern_word_ok(tool, lw)) {
+        add_slot(ctx, SLOT_FILE, t);
+        return 2;
+    }
+    if (prev && in_list(prev, GREP_DIR_NOUNS) && i > 1 && in_list(toks[i - 2].lower, GREP_IN_WORDS) &&
+        grep_pattern_word_ok(tool, lw)) {
+        add_slot(ctx, SLOT_FILE, t);
+        return 1;
+    }
+
+    /* 7. Paths */
+    const char *ext = extension_of(t);
+    if (looks_like_file(t, tool) || (ext && in_list(ext, GREP_EXTS))) {
+        add_slot(ctx, SLOT_FILE, t);
+        return 1;
+    }
+
+    /* 8. Bare pattern after a trigger word: "search for TODO", "or FIXME" */
+    size_t at = 0;
+    const char *pw = grep_prev_word(toks, i, &at);
+    bool have_pattern = nl_count_slots(ctx, SLOT_QUOTED_STR) > 0;
+    bool trigger = pw && (in_list(pw, GREP_PATTERN_TRIGGERS) ||
+                          (strcmp(pw, "or") == 0 && have_pattern) ||
+                          /* "how many times does TODO appear" */
+                          ((strcmp(pw, "does") == 0 || strcmp(pw, "do") == 0) && next &&
+                           (strncmp(next, "appear", 6) == 0 || strncmp(next, "occur", 5) == 0)) ||
+                          (strcmp(pw, "of") == 0 && at > 0 &&
+                           (strcmp(toks[at - 1].lower, "occurrences") == 0 ||
+                            strcmp(toks[at - 1].lower, "instances") == 0 ||
+                            strcmp(toks[at - 1].lower, "mentions") == 0)));
+    if (trigger && grep_pattern_word_ok(tool, lw)) {
+        /* "with 3 lines of context": a number before "lines" is a count */
+        bool numeric = is_number(t, false);
+        static const char *const counted[] = { "lines", "line", "matches", "match", "results", NULL };
+        if (!(numeric && next && in_list(next, counted))) {
+            add_slot(ctx, SLOT_QUOTED_STR, t);
+            return 1;
+        }
+    }
+
+    /* 9. Numbers: context lines, max matches */
+    if (is_number(t, false)) { add_slot(ctx, SLOT_NUM, t); return 1; }
+
+    /* 10. Glue words carry no intent */
+    if (in_list(lw, GREP_FILLER) || in_list(lw, GREP_DIR_NOUNS)) return 1;
+    return 0;
+}
+
 bool nl_lex(ParseContext *ctx, ToolId tool, const char *input, const JsonInfo *json) {
     memset(ctx, 0, sizeof *ctx);
     ctx->tool = tool;
@@ -481,7 +724,18 @@ bool nl_lex(ParseContext *ctx, ToolId tool, const char *input, const JsonInfo *j
         const char *prev2 = i > 1 ? toks[i - 2].lower : NULL;
         const char *next = i + 1 < count && !toks[i + 1].quoted ? toks[i + 1].lower : NULL;
 
+        bool grep_like = tool == TOOL_GREP;
+
         /* 1. Quoted strings */
+        if (toks[i].quoted && grep_like) {
+            /* the pattern, unless it's a path given after "in" or after the
+             * pattern: "find 'TODO' in 'my notes/'" */
+            bool after_in = prev && !toks[i - 1].quoted && in_list(prev, GREP_IN_WORDS);
+            bool file = (after_in || nl_count_slots(ctx, SLOT_QUOTED_STR) > 0) &&
+                        looks_like_file(t, tool);
+            add_slot(ctx, file ? SLOT_FILE : SLOT_QUOTED_STR, t);
+            continue;
+        }
         if (toks[i].quoted) {
             const char *ext = extension_of(t);
             bool file = tool == TOOL_JQ ? (ext && ext_in(ext, JQ_EXTS)) : looks_like_file(t, tool);
@@ -489,7 +743,10 @@ bool nl_lex(ParseContext *ctx, ToolId tool, const char *input, const JsonInfo *j
             continue;
         }
 
-        if (tool == TOOL_JQ) {
+        if (grep_like) {
+            size_t used = classify_grep(ctx, tool, toks, count, i);
+            if (used) { i += used - 1; continue; }
+        } else if (tool == TOOL_JQ) {
             /* Count intent: "count", "how many/much", "number of" */
             if (strcmp(lw, "count") == 0 ||
                 (strcmp(lw, "how") == 0 && next && (strcmp(next, "many") == 0 || strcmp(next, "much") == 0)) ||
@@ -606,6 +863,7 @@ int nl_count_slots(const ParseContext *ctx, SlotType type) {
 ToolId nl_tool_from_name(const char *name) {
     if (strcmp(name, "ffmpeg") == 0 || strcmp(name, "ffprobe") == 0) return TOOL_FFMPEG;
     if (strcmp(name, "jq") == 0) return TOOL_JQ;
+    if (strcmp(name, "grep") == 0) return TOOL_GREP;
     return TOOL_UNKNOWN;
 }
 
@@ -613,6 +871,7 @@ const char *nl_tool_name(ToolId tool) {
     switch (tool) {
     case TOOL_FFMPEG: return "ffmpeg";
     case TOOL_JQ:     return "jq";
+    case TOOL_GREP:   return "grep";
     default:          return "unknown";
     }
 }
@@ -620,14 +879,14 @@ const char *nl_tool_name(ToolId tool) {
 static const struct { const char *name; const char *hint; } SLOT_INFO[SLOT_TYPE_COUNT] = {
     [SLOT_NONE]       = { "NONE",       "" },
     [SLOT_FILE]       = { "FILE",       "a file path (e.g. input.mp4, data.json)" },
-    [SLOT_EXT]        = { "EXT",        "a target format (e.g. mp4, mp3, gif)" },
+    [SLOT_EXT]        = { "EXT",        "a format or file type (e.g. mp4, gif, py)" },
     [SLOT_TIME]       = { "TIME",       "a timestamp (e.g. 00:10, 1:30, 15s)" },
     [SLOT_RES]        = { "RES",        "a resolution (e.g. 720p, 1920x1080)" },
     [SLOT_BITRATE]    = { "BITRATE",    "a bitrate (e.g. 128k, 2M)" },
     [SLOT_FPS]        = { "FPS",        "a frame rate (e.g. 30fps)" },
     [SLOT_FACTOR]     = { "FACTOR",     "a multiplier (e.g. 2x, 1.5x)" },
     [SLOT_NUM]        = { "NUM",        "a number (e.g. 10)" },
-    [SLOT_QUOTED_STR] = { "QUOTED_STR", "a quoted string (e.g. 'active')" },
+    [SLOT_QUOTED_STR] = { "QUOTED_STR", "a quoted string or search pattern (e.g. 'active', 'TODO')" },
     [SLOT_JSON_PATH]  = { "JSON_PATH",  "a JSON path (e.g. .users[].email)" },
 };
 

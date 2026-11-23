@@ -10,7 +10,7 @@ Instead of calling external LLM APIs at runtime—which introduces multi-second 
 * **Sub-Millisecond Execution:** Cold start and compilation take `< 0.5ms`, making it fast enough to embed inside tight shell loops.
 * **Strict C11 Standard Library Only:** No POSIX `<regex.h>`, no SQLite, no OpenSSL, and no third-party runtime dependencies. Builds cleanly on Linux, macOS, and Windows.
 * **Safe by Default:** Prints the compiled command to `stdout` for inspection or command substitution (`$(nl ...)`), requiring explicit opt-in (`-x`) to execute.
-* **MVP Target Tools:** `jq`, `grep`, `grop`, and `ffmpeg`.
+* **MVP Target Tools:** `jq`, `grep`, and `ffmpeg`.
 
 ---
 
@@ -27,7 +27,7 @@ User Input: nl ffmpeg "cut input.mp4 from 00:10 to 00:25 and scale to 720p"
                      │
                      ▼
 ┌─────────────────────────────────────────┐
-│ 2. Compile-Time Static Template Index   │  Scoped by target tool (`ffmpeg`, `jq`, `grep`, `grop`)
+│ 2. Compile-Time Static Template Index   │  Scoped by target tool (`ffmpeg`, `jq`, `grep`)
 │    Slot Gate + Weighted Token Overlap   │  Finds highest-scoring template + checks required slots
 └────────────────────┬────────────────────┘
                      │
@@ -60,8 +60,7 @@ typedef enum {
     TOOL_UNKNOWN = 0,
     TOOL_FFMPEG,
     TOOL_JQ,
-    TOOL_GREP,
-    TOOL_GROP
+    TOOL_GREP
 } ToolId;
 
 typedef enum {
@@ -109,7 +108,7 @@ typedef struct {
 ### Stage 1: Deterministic Slot Extractor (State-Machine Lexer)
 A single-pass lexer scans whitespace-delimited tokens and classifies literals into typed slots before normalizing remaining words into intent tokens:
 
-1. **Quoted Strings (`'...'` or `"..."`):** Captured first as `SLOT_QUOTED_STR` (critical for `grep`/`grop` search patterns and `jq` string comparisons).
+1. **Quoted Strings (`'...'` or `"..."`):** Captured first as `SLOT_QUOTED_STR` (critical for `grep` search patterns and `jq` string comparisons).
 2. **Timestamps (`HH:MM:SS`, `MM:SS`, or `\d+s`):** Digits separated by `:` or ending in `s` → `SLOT_TIME`.
 3. **Resolutions (`\d+p` or `\d+x\d+`):** e.g., `720p`, `1080p`, `1280x720` → `SLOT_RES`.
 4. **Bitrates (`\d+[kKmM]`):** e.g., `128k`, `320k`, `5M` → `SLOT_BITRATE`.
@@ -159,8 +158,6 @@ Using pure C11 `<stdlib.h>` `system()`:
 | **`grep`** | `ignore`, `case`, `insensitive` | `grep -rniE {QUOTED_STR:0} {FILE:0\|.}` |
 | **`grep`** | `count`, `matches`, `lines` | `grep -rcE {QUOTED_STR:0} {FILE:0\|.}` |
 | **`grep`** | `only`, `filenames`, `files` | `grep -rlE {QUOTED_STR:0} {FILE:0\|.}` |
-| **`grop`** | `search`, `pattern`, `code`, `find` | `grop {QUOTED_STR:0} {FILE:0\|.}` |
-| **`grop`** | `ignore`, `case`, `insensitive` | `grop -i {QUOTED_STR:0} {FILE:0\|.}` |
 
 ---
 
@@ -192,5 +189,5 @@ cc -std=c11 -O2 -Wall -Wextra -pedantic src/main.c src/lexer.c src/matcher.c src
 
 1. **Milestone 1 — Core Lexer & Slot Extractor (`lexer.c`):** Implement fixed-buffer arena allocation, quoted-string parsing, timestamp/resolution/bitrate/JSON-path recognizers, and stopword filtering.
 2. **Milestone 2 — Matcher & Expander (`matcher.c`, `expander.c`):** Implement slot-gated keyword scoring, `{SLOT:IDX|DEFAULT}` substitution, `{OUT_FILE}` synthesis, and safe single-quote escaping.
-3. **Milestone 3 — Template Pack & CLI (`templates.c`, `main.c`):** Populate the initial 20+ templates across `ffmpeg`, `jq`, `grep`, and `grop`, add `-x` / `-y` / `--list` flags, and verify zero warnings under `-Wall -Wextra -pedantic`.
+3. **Milestone 3 — Template Pack & CLI (`templates.c`, `main.c`):** Populate the initial 20+ templates across `ffmpeg`, `jq`, and `grep`, add `-x` / `-y` / `--list` flags, and verify zero warnings under `-Wall -Wextra -pedantic`.
 4. **Milestone 4 — Offline `.spell` Compiler (`tools/gen_templates.py`):** Build an optional build-time code generator so new rules can be authored in plain-text `.spell` files and compiled into `templates.c` without touching C source code.

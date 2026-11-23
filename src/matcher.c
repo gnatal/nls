@@ -197,6 +197,20 @@ void nl_match(const ParseContext *ctx, MatchResult *out, bool verbose) {
         }
     }
 
+    /* grep: a pattern with no recognizable verb ("'TODO' in src/")
+     * means a plain search: the tool's first template that can run. */
+    if (!out->best && ctx->tool == TOOL_GREP) {
+        for (size_t i = 0; i < NL_TEMPLATE_COUNT; i++) {
+            const CommandTemplate *tpl = &NL_TEMPLATES[i];
+            SlotType missing[NL_MAX_REQUIRED];
+            if (tpl->tool != ctx->tool || check_slots(ctx, tpl, missing) != 0) continue;
+            if (verbose) fprintf(stderr, "no keyword matched: defaulting to %s\n", tpl->id);
+            out->best = tpl;
+            out->best_score = 0;
+            break;
+        }
+    }
+
     /* "how many users have emails": counting wraps a filter ({COUNT} appends
      * "| length"), so a matching filter beats the plain count templates. */
     if (ctx->wants_count && best_filter) {

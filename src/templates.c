@@ -438,6 +438,67 @@ const CommandTemplate NL_TEMPLATES[] = {
       "combine lines of events.jsonl into an array",
       KW("slurp", "combine", "merge", "array", "lines", "jsonl", "ndjson", "collect"), REQ(0),
       "jq -s ." JQ_FILE, SHAPE_ANY },
+
+    /* =============================== grep ===============================
+     * Every template shares the generic verbs (GREP_VERBS), so they tie on
+     * "find"/"search" and the mode words (files, count, context, ...) decide;
+     * with no mode word the first one, grep_search, wins.
+     * Modifiers ("ignore case", "whole word", "not containing", "literal")
+     * are lexed into ctx->flags and merged by {FLAGS|base|allowed}. 'r' is
+     * dropped when only regular files are searched. Patterns go through -e
+     * so one starting with '-' can't be read as an option. */
+#define GREP_VERBS "search", "find", "grep", "look", "show", "print", "locate"
+#define GREP_INCL  "<< --include='*.{EXT:0}'>><< --include='*.{EXT:1}'>>"
+#define GREP_PATS  " -e {QUOTED_STR:0}<< -e {QUOTED_STR:1}>><< -e {QUOTED_STR:2}>>"
+#define GREP_PATHS " {FILE:0|.}<< {FILE:1}>><< {FILE:2}>>"
+#define GREP_MODS  "iwvF"
+
+    { TOOL_GREP, "grep_search", "Search for a pattern (recursive, with line numbers)",
+      "search for 'TODO' in src/",
+      KW(GREP_VERBS, "lookup", "occurrence", "occurrences", "usages", "uses"), REQ(S),
+      "grep {FLAGS|rnE|" GREP_MODS "}" GREP_INCL GREP_PATS GREP_PATHS, SHAPE_ANY },
+
+    { TOOL_GREP, "grep_files", "List only the names of files that match",
+      "which files contain 'TODO' in src/",
+      KW(GREP_VERBS, "files", "filenames", "filename", "names", "which", "list", "paths", "only"), REQ(S),
+      "grep {FLAGS|rlE|" GREP_MODS "}" GREP_INCL GREP_PATS GREP_PATHS, SHAPE_ANY },
+
+    { TOOL_GREP, "grep_count", "Count matching lines (per file)",
+      "count lines matching 'ERROR' in app.log",
+      KW(GREP_VERBS, "count", "how", "many", "number", "per", "each"), REQ(S),
+      "grep {FLAGS|rcE|" GREP_MODS "}" GREP_INCL GREP_PATS GREP_PATHS, SHAPE_ANY },
+
+    { TOOL_GREP, "grep_count_total", "Count every occurrence of a pattern (total)",
+      "how many times does 'TODO' appear in src/",
+      KW(GREP_VERBS, "count", "how", "many", "times", "total", "occurrences", "appear",
+         "instances"), REQ(S),
+      "grep {FLAGS|rhoE|" GREP_MODS "}" GREP_INCL GREP_PATS GREP_PATHS " | wc -l", SHAPE_ANY },
+
+    { TOOL_GREP, "grep_only", "Print only the matched text, not the whole line",
+      "extract only the matching part of '[0-9]+ms' from app.log",
+      KW(GREP_VERBS, "only", "extract", "matched", "part", "parts", "just", "pull", "output"), REQ(S),
+      "grep {FLAGS|roE|" GREP_MODS "}" GREP_INCL GREP_PATS GREP_PATHS, SHAPE_ANY },
+
+    { TOOL_GREP, "grep_after", "Show matches plus N lines after (default 3)",
+      "show 'panic' and 5 lines after in app.log",
+      KW(GREP_VERBS, "after", "following", "below", "next"), REQ(S),
+      "grep {FLAGS|rnE|" GREP_MODS "} -A {NUM:0|3}" GREP_INCL GREP_PATS GREP_PATHS, SHAPE_ANY },
+
+    { TOOL_GREP, "grep_before", "Show matches plus N lines before (default 3)",
+      "show 2 lines before 'Traceback' in app.log",
+      KW(GREP_VERBS, "before", "preceding", "above", "previous", "prior"), REQ(S),
+      "grep {FLAGS|rnE|" GREP_MODS "} -B {NUM:0|3}" GREP_INCL GREP_PATS GREP_PATHS, SHAPE_ANY },
+
+    { TOOL_GREP, "grep_context", "Show matches with N lines of context (default 2)",
+      "find 'timeout' in app.log with 3 lines of context",
+      KW(GREP_VERBS, "context", "around", "surrounding", "near", "nearby", "before", "after"), REQ(S),
+      "grep {FLAGS|rnE|" GREP_MODS "} -C {NUM:0|2}" GREP_INCL GREP_PATS GREP_PATHS, SHAPE_ANY },
+
+    { TOOL_GREP, "grep_max", "Stop after the first N matches per file (default 1)",
+      "first 5 matches of 'ERROR' in app.log",
+      KW(GREP_VERBS, "first", "max", "maximum", "limit", "stop", "top", "most", "up"), REQ(S),
+      "grep {FLAGS|rnE|" GREP_MODS "} -m {NUM:0|1}" GREP_INCL GREP_PATS GREP_PATHS, SHAPE_ANY },
+
 };
 
 const size_t NL_TEMPLATE_COUNT = sizeof NL_TEMPLATES / sizeof NL_TEMPLATES[0];
