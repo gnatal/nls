@@ -1,0 +1,60 @@
+# prompt	expected output (whitespace-normalized; run in tests/fixtures/)
+pretty print data.json	{ "config": { "debug": true, "port": 8080 }, "users": [ { "email": "a@x" }, { "email": "b@y" } ] }
+minify data.json	{"config":{"debug":true,"port":8080},"users":[{"email":"a@x"},{"email":"b@y"}]}
+validate users.json	valid
+keys of data.json	[ "config", "users" ]
+list keys of .config in data.json	[ "debug", "port" ]
+show the structure of data.json	config config.debug config.port users users.0 users.0.email users.1 users.1.email
+what type is .config.port in data.json	"number"
+how many items in users.json	4
+count .users in data.json	2
+count users.json by .status	[ { "key": "active", "count": 3 }, { "key": "inactive", "count": 1 } ]
+first 2 items of numbers.json	[ 3, 1 ]
+last item of numbers.json	[ 4, [ 5 ] ]
+users.json where .status is active	[ { "name": "Ana", "email": "ana@gmail.com", "age": 34, "status": "active", "role": "admin", "country": "BR", "active": true, "password": "x" }, { "name": "Carla", "email": "carla@gmail.com", "age": 42, "status": "active", "role": "user", "country": "BR", "active": true, "password": "z" }, { "name": "Dan", "age": 30, "status": "active", "role": "user", "country": "PT", "active": true, "password": "w" } ]
+filter users.json where .status is 'inactive'	[ { "name": "Bob", "email": "bob@work.io", "age": 17, "status": "inactive", "role": "user", "country": "US", "active": false, "password": "y" } ]
+get .name from users.json where .age > 30	[ "Ana", "Carla" ]
+get .name from users.json where .age < 18	[ "Bob" ]
+get .name from users.json where .age is 30	[ "Dan" ]
+get .name from users.json where .active is false	[ "Bob" ]
+get .name from users.json where .role is not admin	[ "Bob", "Carla", "Dan" ]
+get .name from users.json where .age is at least 34	[ "Ana", "Carla" ]
+get .name from users.json where .age is at most 30	[ "Bob", "Dan" ]
+get .name from users.json where .email contains gmail	[ "Ana", "Carla" ]
+get .name from users.json where .name matches '^C'	[ "Carla" ]
+get .name from users.json where .email exists	[ "Ana", "Bob", "Carla" ]
+search data.json for 'b@'	"b@y"
+list .email of each user in users.json	ana@gmail.com bob@work.io carla@gmail.com null
+get .users[].email from data.json	a@x b@y
+get .config.port from data.json	8080
+get .name from users.json sorted by .age	[ "Bob", "Dan", "Ana", "Carla" ]
+sort users.json by .age descending	[ { "name": "Carla", "email": "carla@gmail.com", "age": 42, "status": "active", "role": "user", "country": "BR", "active": true, "password": "z" }, { "name": "Ana", "email": "ana@gmail.com", "age": 34, "status": "active", "role": "admin", "country": "BR", "active": true, "password": "x" }, { "name": "Dan", "age": 30, "status": "active", "role": "user", "country": "PT", "active": true, "password": "w" }, { "name": "Bob", "email": "bob@work.io", "age": 17, "status": "inactive", "role": "user", "country": "US", "active": false, "password": "y" } ]
+unique .country values in users.json	[ "BR", "PT", "US" ]
+sum .age in users.json	123
+average .age in users.json	30.75
+user with the highest .age in users.json	{ "name": "Carla", "email": "carla@gmail.com", "age": 42, "status": "active", "role": "user", "country": "BR", "active": true, "password": "z" }
+user with the lowest .age in users.json	{ "name": "Bob", "email": "bob@work.io", "age": 17, "status": "inactive", "role": "user", "country": "US", "active": false, "password": "y" }
+remove .password from each user in users.json	[ { "name": "Ana", "email": "ana@gmail.com", "age": 34, "status": "active", "role": "admin", "country": "BR", "active": true }, { "name": "Bob", "email": "bob@work.io", "age": 17, "status": "inactive", "role": "user", "country": "US", "active": false }, { "name": "Carla", "email": "carla@gmail.com", "age": 42, "status": "active", "role": "user", "country": "BR", "active": true }, { "name": "Dan", "age": 30, "status": "active", "role": "user", "country": "PT", "active": true } ]
+delete .config from data.json	{ "users": [ { "email": "a@x" }, { "email": "b@y" } ] }
+convert users.json to csv with .name .email	"Ana","ana@gmail.com" "Bob","bob@work.io" "Carla","carla@gmail.com" "Dan",
+convert users.json to tsv	name email age status role country active password Ana ana@gmail.com 34 active admin BR true x Bob bob@work.io 17 inactive user US false y Carla carla@gmail.com 42 active user BR true z Dan 30 active user PT true w
+sort numbers.json	[ 1, 2, 3, 3, [ 4, [ 5 ] ] ]
+flatten numbers.json	[ 3, 1, 2, 3, 4, 5 ]
+dedupe numbers.json	[ 1, 2, 3, [ 4, [ 5 ] ] ]
+combine lines of events.jsonl into an array	[ { "event": "login", "user": "ana" }, { "event": "logout", "user": "bob" } ]
+sort users.json by .age descending and get .name	[ "Carla", "Ana", "Dan", "Bob" ]
+get .name of the user with the highest .age in users.json	"Carla"
+get .name from users.json where .country is BR and .age > 40	!ERR
+count users.json .status	[ { "key": "active", "count": 3 }, { "key": "inactive", "count": 1 } ]
+get .name from users.json	Ana Bob Carla Dan
+get .[0].name from users.json	Ana
+sort data.json by .x	!ERR
+in users.json tell me how much users have emails	3
+how many users in users.json have an email	3
+how many users.json without emails	1
+how many users where .age > 30 in users.json	2
+count users in users.json where status is active	3
+list emails in users.json	ana@gmail.com bob@work.io carla@gmail.com null
+count users.json by status	[ { "key": "active", "count": 3 }, { "key": "inactive", "count": 1 } ]
+count users in data.json	2
+get names from users.json where age > 30	[ "Ana", "Carla" ]

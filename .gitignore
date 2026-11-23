@@ -1,0 +1,4 @@
+nls
+*.o
+.DS_Store
+midia_files/

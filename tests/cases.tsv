@@ -1,0 +1,98 @@
+# tool	prompt	expected command (or !ERR)
+ffmpeg	cut input.mp4 from 00:10 to 00:25 and scale to 720p	ffmpeg -ss 00:10 -to 00:25 -i input.mp4 -vf scale=-2:720 -c:a copy input_cut.mp4
+ffmpeg	cut input.mp4 from 00:10 to 00:25	ffmpeg -ss 00:10 -to 00:25 -i input.mp4 -c copy input_cut.mp4
+ffmpeg	trim the first 30 seconds of clip.mov	ffmpeg -i clip.mov -t 30 -c copy clip_cut.mov
+ffmpeg	keep the last 10s of in.mp4	ffmpeg -sseof -10 -i in.mp4 -c copy in_cut.mp4
+ffmpeg	trim in.mp4 starting from 1:30	ffmpeg -ss 1:30 -i in.mp4 -c copy in_cut.mp4
+ffmpeg	cut video.mp4 from 00:10	ffmpeg -ss 00:10 -i video.mp4 -c copy video_cut.mp4
+ffmpeg	cut and scale video.mp4 from 00:10 to 00:20	!ERR
+ffmpeg	cut in.mp4 from 1 minute to 2.5 minutes	ffmpeg -ss 60 -to 150 -i in.mp4 -c copy in_cut.mp4
+ffmpeg	convert input.mkv to mp4	ffmpeg -i input.mkv input.mp4
+ffmpeg	convert input.mkv to output.webm	ffmpeg -i input.mkv output.webm
+ffmpeg	convert demo.mov to gif	ffmpeg -i demo.mov -vf 'fps=10,scale=480:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse' -loop 0 demo.gif
+ffmpeg	convert demo.mov to gif at 12fps width 320	ffmpeg -i demo.mov -vf 'fps=12,scale=320:-2:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse' -loop 0 demo.gif
+ffmpeg	make a gif from video.mp4 between 00:05 and 00:08 at 15 fps	ffmpeg -ss 00:05 -to 00:08 -i video.mp4 -vf 'fps=15,scale=480:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse' -loop 0 video.gif
+ffmpeg	make a gif from video.mp4	ffmpeg -i video.mp4 -vf 'fps=10,scale=480:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse' -loop 0 video.gif
+ffmpeg	scale in.mp4 to 720p	ffmpeg -i in.mp4 -vf scale=-2:720 -c:a copy in_scaled.mp4
+ffmpeg	resize in.mp4 to 1280x720	ffmpeg -i in.mp4 -vf scale=1280:720 -c:a copy in_scaled.mp4
+ffmpeg	scale in.mp4 to 480	ffmpeg -i in.mp4 -vf scale=-2:480 -c:a copy in_scaled.mp4
+ffmpeg	scale in.mp4 to 4k	ffmpeg -i in.mp4 -vf scale=-2:2160 -c:a copy in_scaled.mp4
+ffmpeg	resize video.mp4	!ERR
+ffmpeg	compress video.mp4	ffmpeg -i video.mp4 -c:v libx264 -crf 28 -preset medium -c:a aac -b:a 128k video_compressed.mp4
+ffmpeg	compress video.mkv to 720p	ffmpeg -i video.mkv -vf scale=-2:720 -c:v libx264 -crf 28 -preset medium -c:a aac -b:a 128k video_compressed.mp4
+ffmpeg	convert in.mp4 to h265	ffmpeg -i in.mp4 -c:v libx265 -crf 28 -preset medium -tag:v hvc1 -c:a copy in_hevc.mp4
+ffmpeg	extract audio from video.mp4	ffmpeg -i video.mp4 -vn -c:a libmp3lame -b:a 192k video.mp3
+ffmpeg	extract audio from video.mp4 as mp3 at 320k	ffmpeg -i video.mp4 -vn -c:a libmp3lame -b:a 320k video.mp3
+ffmpeg	extract audio from video.mp4 as flac	ffmpeg -i video.mp4 -vn video.flac
+ffmpeg	convert video.mp4 to wav	ffmpeg -i video.mp4 video.wav
+ffmpeg	remove audio from video.mp4	ffmpeg -i video.mp4 -c:v copy -an video_muted.mp4
+ffmpeg	remux in.mkv to mp4 without re-encoding	ffmpeg -i in.mkv -c copy in.mp4
+ffmpeg	take a screenshot of video.mp4 at 00:30	ffmpeg -ss 00:30 -i video.mp4 -frames:v 1 video_thumb.jpg
+ffmpeg	extract a frame from video.mp4 at 1:00 as png	ffmpeg -ss 1:00 -i video.mp4 -frames:v 1 video_thumb.png
+ffmpeg	extract frames from in.mp4 at 2 fps	ffmpeg -i in.mp4 -vf fps=2 in_%04d.png
+ffmpeg	extract all frames of in.mp4	ffmpeg -i in.mp4 in_%04d.png
+ffmpeg	change in.mp4 to 30fps	ffmpeg -i in.mp4 -filter:v fps=30 -c:a copy in_fps.mp4
+ffmpeg	change framerate of in.mp4 to 24 fps	ffmpeg -i in.mp4 -filter:v fps=24 -c:a copy in_fps.mp4
+ffmpeg	speed up in.mp4 1.5x	ffmpeg -i in.mp4 -filter:v setpts=PTS/1.5 -filter:a atempo=1.5 in_fast.mp4
+ffmpeg	reverse in.mp4	ffmpeg -i in.mp4 -vf reverse -af areverse in_reversed.mp4
+ffmpeg	rotate in.mp4 clockwise	ffmpeg -i in.mp4 -vf transpose=1 -c:a copy in_rotated.mp4
+ffmpeg	rotate in.mp4 counterclockwise	ffmpeg -i in.mp4 -vf transpose=2 -c:a copy in_rotated.mp4
+ffmpeg	flip in.mp4 upside down	ffmpeg -i in.mp4 -vf vflip -c:a copy in_flipped.mp4
+ffmpeg	make in.mp4 black and white	ffmpeg -i in.mp4 -vf format=gray -c:a copy in_gray.mp4
+ffmpeg	make in.mp4 louder 2x	ffmpeg -i in.mp4 -filter:a volume=2 -c:v copy in_louder.mp4
+ffmpeg	reduce the volume of in.mp4	ffmpeg -i in.mp4 -filter:a volume=0.5 -c:v copy in_quieter.mp4
+ffmpeg	normalize audio of in.mp4	ffmpeg -i in.mp4 -af loudnorm -c:v copy in_normalized.mp4
+ffmpeg	show info about in.mp4	ffprobe -hide_banner in.mp4
+ffmpeg	what's the duration of in.mp4	ffprobe -hide_banner in.mp4
+ffmpeg	cut "my holiday video.mp4" from 1:00 to 2:00	ffmpeg -ss 1:00 -to 2:00 -i 'my holiday video.mp4' -c copy 'my holiday video_cut.mp4'
+ffmpeg	cut ~/Videos/it's.mp4 from 1:00 to 2:00	ffmpeg -ss 1:00 -to 2:00 -i ~/'Videos/it'\''s.mp4' -c copy ~/'Videos/it'\''s_cut.mp4'
+ffmpeg	cut a.mp4; rm -rf ~ from 1:00 to 2:00	ffmpeg -ss 1:00 -to 2:00 -i a.mp4 -c copy a_cut.mp4
+ffmpeg	blah blah	!ERR
+jq	pretty print data.json	jq . data.json
+jq	minify data.json	jq -c . data.json
+jq	validate users.json	jq empty users.json && echo valid
+jq	list keys of .config in data.json	jq '.config | keys' data.json
+jq	keys of data.json	jq 'keys' data.json
+jq	show the structure of data.json	jq -r 'paths | map(tostring) | join(".")' data.json
+jq	what type is .config.port in data.json	jq '.config.port | type' data.json
+jq	count users.json by .status	jq 'group_by(.status) | map({key: (.[0].status | tostring), count: length})' users.json
+jq	how many items in users.json	jq 'length' users.json
+jq	count .users in data.json	jq '.users | length' data.json
+jq	first 2 items of users.json	jq '.[:2]' users.json
+jq	last item of users.json	jq '.[-1]' users.json
+jq	filter users.json where .status is 'active'	jq --arg v active 'map(select(.status == $v))' users.json
+jq	users.json where .status is active	jq --arg v active 'map(select(.status == $v))' users.json
+jq	get .name from users.json where .age > 30	jq 'map(select(.age > 30) | .name)' users.json
+jq	users.json where .age < 18	jq 'map(select(.age < 18))' users.json
+jq	users.json where .age is 30	jq 'map(select(.age == 30))' users.json
+jq	users.json where .active is true	jq 'map(select(.active == true))' users.json
+jq	users.json where .role is not admin	jq --arg v admin 'map(select(.role != $v))' users.json
+jq	users.json where .age is at least 34	jq 'map(select(.age >= 34))' users.json
+jq	users.json where .email contains gmail	jq --arg v gmail 'map(select(.email | strings | contains($v)))' users.json
+jq	users.json where .name matches '^C'	jq --arg v '^C' 'map(select(.name | strings | test($v)))' users.json
+jq	users.json where .email exists	jq 'map(select(.email != null))' users.json
+jq	search data.json for 'b@'	jq --arg v b@ '.. | strings | select(contains($v))' data.json
+jq	list .email of each user in users.json	jq -r '.[] | .email' users.json
+jq	get .users[].email from data.json	jq -r '.users[].email' data.json
+jq	get .config.port from data.json	jq -r '.config.port' data.json
+jq	show .config in data.json	jq -r '.config' data.json
+jq	sort users.json by .age descending	jq 'sort_by(.age) | reverse' users.json
+jq	sort users.json by .age	jq 'sort_by(.age)' users.json
+jq	group users.json by .country	jq 'group_by(.country) | map({key: (.[0].country | tostring), count: length})' users.json
+jq	unique .country values in users.json	jq 'map(.country) | unique' users.json
+jq	sum .age in users.json	jq 'map(.age) | add' users.json
+jq	average .age in users.json	jq 'map(.age) | add / length' users.json
+jq	user with the highest .age in users.json	jq 'max_by(.age)' users.json
+jq	user with the lowest .age in users.json	jq 'min_by(.age)' users.json
+jq	remove .password from each user in users.json	jq 'map(del(.password))' users.json
+jq	delete .config from data.json	jq 'del(.config)' data.json
+jq	convert users.json to csv	jq -r '(.[0] | keys_unsorted) as $k | $k, (.[] | [.[$k[]]]) | @csv' users.json
+jq	convert users.json to csv with .name .email	jq -r '.[] | [.name, .email] | @csv' users.json
+jq	convert users.json to tsv	jq -r '(.[0] | keys_unsorted) as $k | $k, (.[] | [.[$k[]]]) | @tsv' users.json
+jq	get .name where .status is "active" in users.json	jq --arg v active 'map(select(.status == $v) | .name)' users.json
+jq	where .name is "O'Brien" in users.json	jq --arg v 'O'\''Brien' 'map(select(.name == $v))' users.json
+jq	get .name	jq -r '.name'
+jq	filter users.json where .status is	!ERR
+jq	get .a;rm in data.json	!ERR
+ffmpeg	cut in.mp4 from 1 to 3 seconds	ffmpeg -ss 1 -to 3 -i in.mp4 -c copy in_cut.mp4
+ffmpeg	cut in.mp4 between 2 and 5s	ffmpeg -ss 2 -to 5 -i in.mp4 -c copy in_cut.mp4

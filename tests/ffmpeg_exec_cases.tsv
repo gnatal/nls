@@ -1,0 +1,40 @@
+# prompt	checks (run on generated fixtures: in.mp4, input.mkv, demo.mov, "my holiday video.mp4"
+# all 5 s, 320x180, 30 fps, h264 + aac stereo). See tests/run_ffmpeg_exec.sh.
+cut in.mp4 from 00:01 to 00:03	exists dur=2~0.6 v=h264 a=aac
+cut in.mp4 from 00:01 to 00:03 and scale to 360p	exists dur=2~0.6 h=360 w=640
+keep the first 2 seconds of in.mp4	exists dur=2~0.6
+keep the last 2s of in.mp4	exists dur=2~0.6
+trim in.mp4 starting from 00:03	exists dur=2~0.6
+cut "my holiday video.mp4" from 1 to 3 seconds	exists dur=2~0.6
+convert demo.mov to gif	exists v=gif w=480
+convert in.mp4 to gif at 5fps width 160	exists v=gif w=160
+make a gif from in.mp4 between 00:01 and 00:02	exists v=gif dur=1~0.5
+scale in.mp4 to 1280x720	exists w=1280 h=720 a=aac
+resize in.mp4 to 240p	exists h=240 w=426
+compress in.mp4	exists v=h264 a=aac dur=5~0.3
+compress input.mkv to 144p	exists v=h264 h=144
+convert in.mp4 to h265	exists v=hevc a=aac
+take a screenshot of in.mp4 at 00:02	exists v=mjpeg w=320
+extract a frame from in.mp4 at 1s as png	exists v=png
+extract frames from in.mp4 at 2 fps	files=in_*.png:9-11
+extract audio from in.mp4	exists a=mp3 novideo dur=5~0.3
+extract audio from in.mp4 as mp3 at 320k	exists a=mp3 novideo
+extract audio from in.mp4 as flac	exists a=flac novideo
+convert in.mp4 to wav	exists a=pcm_s16le novideo
+convert in.mp4 to mp3	exists a=mp3 novideo
+remove audio from in.mp4	exists noaudio v=h264
+remux input.mkv to mp4 without re-encoding	exists v=h264 a=aac
+convert input.mkv to mp4	exists v=h264
+convert input.mkv to output.webm	exists
+change in.mp4 to 15fps	exists fps=15
+speed up in.mp4 2x	exists dur=2.5~0.4
+reverse in.mp4	exists dur=5~0.3
+rotate in.mp4 clockwise	exists w=180 h=320
+rotate in.mp4 counterclockwise	exists w=180 h=320
+flip in.mp4 upside down	exists w=320 h=180
+flip in.mp4 horizontally	exists w=320 h=180
+make in.mp4 black and white	exists
+make in.mp4 louder 2x	exists a=aac
+reduce the volume of in.mp4	exists a=aac
+normalize audio of in.mp4	exists
+show info about in.mp4	stdout=Duration

@@ -1,0 +1,4 @@
+{
+  "config": {"debug": true, "port": 8080},
+  "users": [{"email": "a@x"}, {"email": "b@y"}]
+}

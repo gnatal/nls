@@ -1,0 +1,6 @@
+[
+  {"name": "Ana",   "email": "ana@gmail.com",   "age": 34, "status": "active",   "role": "admin", "country": "BR", "active": true,  "password": "x"},
+  {"name": "Bob",   "email": "bob@work.io",     "age": 17, "status": "inactive", "role": "user",  "country": "US", "active": false, "password": "y"},
+  {"name": "Carla", "email": "carla@gmail.com", "age": 42, "status": "active",   "role": "user",  "country": "BR", "active": true,  "password": "z"},
+  {"name": "Dan",                               "age": 30, "status": "active",   "role": "user",  "country": "PT", "active": true,  "password": "w"}
+]
