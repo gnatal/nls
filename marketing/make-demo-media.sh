@@ -97,5 +97,35 @@ rm -f "$OUT/backup.tar.gz" "$OUT/backup.tgz" "$OUT/dist/README.md" "$OUT/dist/bi
 rmdir "$OUT/dist/bin" 2>/dev/null || true
 mkdir -p "$OUT/dist"
 
+# git demo: a small repo with two authors, a line that changed hands, a
+# string to search for, and a feature branch ahead of main. Authors are
+# fake and set per commit; signing and hooks are off so your own git config
+# doesn't leak into (or break) the recording.
+if command -v git >/dev/null 2>&1; then
+    P="$OUT/project"
+    rm -rf "$P" && mkdir -p "$P/src"
+    g() { git -C "$P" -c commit.gpgsign=false -c core.hooksPath=/dev/null "$@"; }
+    commit() {  # commit AUTHOR MESSAGE
+        GIT_AUTHOR_NAME="$1" GIT_AUTHOR_EMAIL="$1@example.com" \
+        GIT_COMMITTER_NAME="$1" GIT_COMMITTER_EMAIL="$1@example.com" \
+            g commit -q -m "$2"
+    }
+    g init -q -b main
+    printf 'import os\n\nPORT = 8080\nHOST = "0.0.0.0"\n' > "$P/src/server.py"
+    g add -A && commit ana "initial server"
+    printf 'import time\n\ndef retry(fn, attempts=3):\n    for _ in range(attempts):\n        try:\n            return fn()\n        except OSError:\n            time.sleep(1)\n' > "$P/src/retry.py"
+    g add -A && commit bruno "add retry helper"
+    printf 'SLOW_MS = 500\n' > "$P/src/db.py"
+    g add -A && commit ana "log slow queries"
+    printf 'import os\n\nPORT = int(os.environ.get("PORT", 8080))\nHOST = os.environ.get("HOST", "0.0.0.0")\n' > "$P/src/server.py"
+    g add -A && commit bruno "read port and host from env"
+    g switch -q -c feature-login
+    printf '<form id="login"></form>\n' > "$P/src/login.html"
+    g add -A && commit ana "add login form"
+    printf 'MIN_PASSWORD = 12\n' > "$P/src/auth.py"
+    g add -A && commit ana "validate passwords"
+    g switch -q main
+fi
+
 echo "demo files in $OUT:"
 ls -1 "$OUT"

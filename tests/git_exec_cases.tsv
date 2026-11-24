@@ -1,0 +1,59 @@
+# setup	prompt	check (run after the compiled command; $OUT = its output)	expected (sorted, normalized)
+# --- history surgery: count commits and what's staged afterwards ---
+-	undo last 2 commits keep changes staged	git rev-list --count HEAD; git diff --cached --name-only	3 src/a.c src/b.c
+-	undo the last commit and unstage its changes	git rev-list --count HEAD; git diff --cached --name-only | wc -l; git diff --name-only	0 4 src/b.c
+-	throw away the last commit and its changes	git rev-list --count HEAD; git status --porcelain | wc -l; cat src/b.c	0 4 needle
+-	squash last 3 commits with message 'combined'	git rev-list --count HEAD; git log -1 --format=%s; git show --stat --format= HEAD | grep -c '|'	3 3 combined
+-	squash last 2 commits	git rev-list --count HEAD; git log -1 --format=%s	4 edited message
+-	revert the last commit	git log -1 --format=%s; cat src/b.c	Revert "update b" needle
+-	revert last 2 commits	git log -2 --format=%s; cat src/a.c src/b.c	Revert "tweak a" Revert "update b" a2 needle
+-	change the last commit message to 'update b properly'	git log -1 --format=%s; git rev-list --count HEAD	5 update b properly
+printf 'x\n' >> src/a.c	add src/a.c to the last commit	git rev-list --count HEAD; git log -1 --format=%s; git show --name-only --format= HEAD	5 src/a.c src/b.c update b
+git reset -q --hard HEAD~2	undo the last reset	git log -1 --format=%s	update b
+printf 'x\n' >> src/a.c; git commit -q -a --amend -m oops	undo the amend	git log -1 --format=%s; git diff --cached --name-only	src/a.c update b
+-	interactively rebase the last 2 commits	git rev-list --count HEAD	5
+-	rebase feature onto main	git rev-list --count HEAD	5
+# --- searching history: $OUT is the log ---
+-	commits by alice	echo "$OUT" | cut -d' ' -f2-	initial remove old update b
+-	commits by bob before 2024-03-15	echo "$OUT" | cut -d' ' -f2-	add b
+-	show last 2 commits	echo "$OUT" | cut -d' ' -f2-	tweak a update b
+-	commits touching src/a.c	echo "$OUT" | grep '^    ' | sed 's/^ *//'	add b initial tweak a
+-	find commit that added 'needle'	echo "$OUT" | cut -d' ' -f2-	add b
+-	which commit added src/b.c	echo "$OUT" | cut -d' ' -f2-	add b
+-	which commit deleted old.txt	echo "$OUT" | cut -d' ' -f2-	remove old
+-	commits with message containing 'old'	echo "$OUT" | cut -d' ' -f2-	remove old
+-	commits on feature not on main	echo "$OUT" | cut -d' ' -f2-	feature work
+-	commits since stable	echo "$OUT" | cut -d' ' -f2-	remove old tweak a update b
+-	how many commits by bob	echo "$OUT"	2
+-	who changed line 1 of src/a.c	echo "$OUT" | sed 's/^[^(]*(\([a-z]*\).*) \(.*\)$/\1 \2/'	bob a3
+-	files changed in the last 2 commits	echo "$OUT"	src/a.c src/b.c
+-	what changed in the last commit	echo "$OUT" | grep -c 'src/b.c'	1
+-	show src/a.c from 3 commits ago	echo "$OUT"	a2
+-	branches merged into main	echo "$OUT" | sed 's/^[* ]*//'	main stable
+# --- working tree & index ---
+printf 'x\n' >> src/a.c; git add src/a.c	unstage src/a.c	git diff --cached --name-only | wc -l; git diff --name-only	0 src/a.c
+printf 'x\n' >> src/a.c	discard changes to src/a.c	git status --porcelain | wc -l; cat src/a.c	0 a3
+-	restore src/a.c from 2 commits ago	cat src/a.c; git diff --cached --name-only | wc -l	0 a2
+-	restore src/a.c from stable	cat src/a.c	a2
+-	restore deleted file old.txt	cat old.txt	old
+printf 's\n' > .env; git add .env; git commit -q -m env	stop tracking .env	git ls-files .env | wc -l; cat .env	0 s
+mkdir -p build tmp; touch build/out.o tmp/x notes.txt	which untracked files would be deleted	echo "$OUT"; ls -d build tmp notes.txt	Would remove notes.txt Would remove tmp/ build notes.txt tmp
+mkdir -p build tmp; touch build/out.o tmp/x notes.txt	delete untracked files	ls -d build tmp notes.txt 2>/dev/null	build
+mkdir -p build tmp; touch build/out.o tmp/x notes.txt	delete untracked and ignored files	ls -d build tmp notes.txt 2>/dev/null | wc -l	0
+printf 'x\n' >> src/a.c	stash my changes with message 'wip login'	git stash list | sed 's/^.*: //'; git status --porcelain | wc -l	0 wip login
+printf 'x\n' >> src/a.c; touch new.txt	stash everything including untracked files	git status --porcelain | wc -l; ls new.txt 2>/dev/null | wc -l	0 0
+printf 'x\n' >> src/a.c; git stash -q	pop the stash	git stash list | wc -l; tail -1 src/a.c	0 x
+# --- branches & tags ---
+-	create branch feature-x from stable	git branch --show-current; cat src/a.c	a2 feature-x
+-	switch to feature	git branch --show-current	feature
+git switch -q feature	switch back to the previous branch	git branch --show-current	main
+-	delete branch stable	git branch --format='%(refname:short)'	feature main
+-	force delete branch feature	git branch --format='%(refname:short)'	main stable
+-	rename branch stable to finished	git branch --format='%(refname:short)'	feature finished main
+-	delete merged branches	git branch --format='%(refname:short)'	feature main
+-	merge feature into main	git branch --show-current; git log -1 --format=%s	feature work main
+git switch -q feature	squash merge feature into main	git branch --show-current; git diff --cached --name-only	feat.txt main
+-	tag the current commit as v1.0	git tag --points-at HEAD; git cat-file -t v1.0	commit v1.0
+-	tag v2.0 with message 'second release'	git cat-file -t v2.0; git tag -n v2.0 | sed 's/^v2.0 *//'	second release tag
+git tag v9	delete tag v9	git tag | wc -l	0
+-	cherry-pick the last commit from feature	git log -1 --format=%s; git branch --show-current	feature work main

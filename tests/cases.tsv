@@ -214,3 +214,146 @@ tar	what's inside backup.tar.gz	tar -tzvf backup.tar.gz
 tar	backup.tar.gz	tar -tzvf backup.tar.gz
 tar	list backup.tar.gz quietly	tar -tzf backup.tar.gz
 tar	list backup.tar.gz into dist	!ERR
+# --- git ---
+git	undo last 2 commits keep changes staged	git reset --soft HEAD~2
+git	commits touching src/lexer.c in last 7 days	git log --since='7 days ago' -p -- src/lexer.c
+git	find commit that added 'inspect.c'	git log -S 'inspect.c' --oneline
+git	squash last 4 commits	git reset --soft HEAD~4 && git commit
+git	undo last commit	git reset --soft HEAD~1
+git	undo the last commit and unstage its changes	git reset --mixed HEAD~1
+git	throw away the last commit and its changes	git reset --hard HEAD~1
+git	revert the last commit	git revert --no-edit HEAD
+git	revert last 3 commits	git revert --no-edit HEAD~3..HEAD
+git	undo last commit already pushed	git revert --no-edit HEAD
+git	undo the last reset	git reset --hard 'HEAD@{1}'
+git	undo the rebase	git reset --hard ORIG_HEAD
+git	undo the amend	git reset --soft 'HEAD@{1}'
+git	undo git add	git restore --staged -- .
+git	squash last 3 commits with message 'feature x'	git reset --soft HEAD~3 && git commit -m 'feature x'
+git	squash last commit	!ERR
+git	interactively rebase the last 5 commits	git rebase -i HEAD~5
+git	rebase onto main	git rebase main
+git	interactive rebase onto main	git rebase -i main
+git	pull with rebase	git pull --rebase
+git	add src/main.c to the last commit	git add -- src/main.c && git commit --amend --no-edit
+git	add staged changes to the last commit	git commit --amend --no-edit
+git	change the last commit message to 'fix login redirect'	git commit --amend -m 'fix login redirect'
+git	fix last commit message	!ERR
+git	commit with message 'fix login bug'	git commit -m 'fix login bug'
+git	commit all changes with message 'wip'	git add -A && git commit -m 'wip'
+git	commit src/main.c with message 'fix'	git commit -m 'fix' -- src/main.c
+git	commits by alice in the last 2 weeks	git log --oneline --author='alice' --since='2 weeks ago'
+git	show last 5 commits	git log --oneline -n 5
+git	my commits since yesterday	git log --oneline --author="$(git config user.name)" --since='yesterday'
+git	commits by 'Jane Doe' older than 1 month	git log --oneline --author='Jane Doe' --until='1 month ago'
+git	what changed in the last 3 commits	git diff HEAD~3 HEAD
+git	what changed in the last commit	git show --stat HEAD
+git	show unstaged changes	git diff
+git	show staged changes	git diff --staged
+git	what will be committed	git diff --staged
+git	files changed in the last 3 commits	git diff --name-only HEAD~3 HEAD
+git	diff against main	git diff main
+git	compare src/main.c to main	git diff main -- src/main.c
+git	diff between v1.0 and v2.0	git diff v1.0 v2.0
+git	full history of src/lexer.c including renames	git log --follow -p -- src/lexer.c
+git	which commit added src/inspect.c	git log --diff-filter=A --oneline -- src/inspect.c
+git	which commit deleted src/old.c	git log --diff-filter=D --oneline -- src/old.c
+git	find commits mentioning 'fix'	git log --oneline --grep='fix'
+git	commits with message containing 'fix'	git log --oneline --grep='fix'
+git	commits on feature-x not on main	git log --oneline main..feature-x
+git	commits not in main	git log --oneline main..HEAD
+git	commits since v1.0	git log --oneline v1.0..HEAD
+git	commits between v1.0 and v2.0	git log --oneline v1.0..v2.0
+git	commits I haven't pushed yet	git log --oneline '@{upstream}..HEAD'
+git	commits on the remote I haven't pulled	git fetch && git log --oneline 'HEAD..@{upstream}'
+git	who changed lines 10 to 20 of src/main.c	git blame -L 10,20 src/main.c
+git	who wrote src/main.c	git blame src/main.c
+git	blame line 42 of src/main.c	git blame -L 42,42 src/main.c
+git	show the last commit	git show --stat HEAD
+git	show commit a1b2c3d	git show --stat a1b2c3d
+git	show src/main.c from 3 commits ago	git show HEAD~3:src/main.c
+git	show src/main.c as of v1.0	git show v1.0:src/main.c
+git	restore src/main.c from 2 commits ago	git restore --source=HEAD~2 -- src/main.c
+git	restore src/main.c from main	git restore --source=main -- src/main.c
+git	revert src/main.c to main	git restore --source=main -- src/main.c
+git	restore deleted file src/old.c	git checkout "$(git rev-list -n 1 HEAD -- src/old.c)^" -- src/old.c
+git	discard changes to src/main.c	git restore -- src/main.c
+git	discard all local changes	!ERR
+git	unstage src/main.c	git restore --staged -- src/main.c
+git	unstage everything	git restore --staged -- .
+git	stop tracking .env	git rm -r --cached -- .env
+git	remove .env from git but keep it locally	git rm -r --cached -- .env
+git	which untracked files would be deleted	git clean -nd
+git	delete untracked files	git clean -fd
+git	delete untracked and ignored files	git clean -fdx
+git	create branch feature-x from main	git switch -c feature-x main
+git	create a new branch called fix/login	git switch -c fix/login
+git	switch back to the previous branch	git switch -
+git	switch to main	git switch main
+git	go back to main	git switch main
+git	checkout feature/login	git switch feature/login
+git	switch to the develop branch	git switch develop
+git	delete branch feature-x	git branch -d feature-x
+git	delete branches old-a and old-b	git branch -d old-a old-b
+git	force delete branch feature-x	git branch -D feature-x
+git	delete branch feature-x on origin	git push origin --delete feature-x
+git	rename branch old-name to new-name	git branch -m old-name new-name
+git	rename current branch to better-name	git branch -m better-name
+git	list branches by most recent commit	git branch --sort=-committerdate
+git	branches merged into main	git branch --merged main
+git	merge feature-x into main	git switch main && git merge feature-x
+git	merge feature-x	git merge feature-x
+git	squash merge feature-x	git merge --squash feature-x
+git	abort the merge	git merge --abort
+git	abort the rebase	git rebase --abort
+git	cherry-pick a1b2c3d	git cherry-pick a1b2c3d
+git	push the new branch and set upstream	git push -u origin HEAD
+git	push feature-x and set upstream	git push -u origin feature-x
+git	force push after rebase	git push --force-with-lease
+git	tag the current commit as v1.2.0	git tag v1.2.0
+git	tag v1.2.0 with message 'release 1.2'	git tag -a -m 'release 1.2' v1.2.0
+git	delete tag v1.2.0	git tag -d v1.2.0
+git	push tags	git push origin --tags
+git	stash my changes with message 'wip login'	git stash push -m 'wip login'
+git	stash everything including untracked files	git stash push -u
+git	stash src/main.c	git stash push -- src/main.c
+git	pop the stash	git stash pop
+git	apply the stash but keep it	git stash apply
+git	list stashes	git stash list
+git	find lost commits	git reflog -n 30
+git	recover a deleted branch	git reflog -n 30
+git	show reflog	git reflog -n 30
+git	undo 5	!ERR
+git	delete branch	!ERR
+git	commits from 3 days	git log --oneline --since='3 days ago'
+git	commit with message "it's done; rm -rf ~"	git commit -m 'it'\''s done; rm -rf ~'
+git	switch to $(whoami)	!ERR
+git	commits by "Jane 'JD' Doe"	git log --oneline --author='Jane '\''JD'\'' Doe'
+git	commits touching 'my file.c'	git log -p -- 'my file.c'
+git	discard changes to 'my notes/a b.txt'	git restore -- 'my notes/a b.txt'
+git	blame -rf.c	!ERR
+git	who changed ./-rf.c	git blame ./-rf.c
+git	interactive rebase	!ERR
+git	revert commit a1b2c3d	git revert --no-edit a1b2c3d
+git	cherry-pick commit a1b2c3d	git cherry-pick a1b2c3d
+git	undo last 0 commits	!ERR
+git	undo last 99999 commits	!ERR
+git	full history of a.c and b.c following renames	!ERR
+git	diff last 3 commits against main	!ERR
+git	show commits by alice touching src/ since 2024-01-01	git log --author='alice' --since='2024-01-01' -p -- src/
+git	commits before 2024-06-30	git log --oneline --until='2024-06-30'
+git	show 10 latest commits	git log --oneline -n 10
+git	commits in src/ last week	git log --oneline --since='1 week ago' -- src/
+git	commits touching *.c	git log -p -- '*.c'
+git	how many commits	git rev-list --count HEAD
+git	how many commits by alice since 2024-01-01	git rev-list --count --author='alice' --since='2024-01-01' HEAD
+git	list tags	git tag --sort=-creatordate
+git	delete merged branches	git branch --merged HEAD | grep -vE '^[*+]|^[[:space:]]*(main|master|develop)$' | xargs -r git branch -d
+git	delete branches merged into main	git branch --merged main | grep -vE '^[*+]|^[[:space:]]*(main|master|develop)$' | xargs -r git branch -d
+git	reset hard to origin/main	git reset --hard origin/main
+git	reset to a1b2c3d keep changes	git reset --soft a1b2c3d
+git	reset to 3 commits ago	git reset --soft HEAD~3
+git	stash called wip	git stash push -m 'wip'
+git	commit 'wip'	git commit -m 'wip'
+git	when was src/old.c deleted	git log --diff-filter=D --oneline -- src/old.c
+git	create branch ..evil	!ERR

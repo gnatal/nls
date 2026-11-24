@@ -1,7 +1,7 @@
 # nls — natural language shell
 
 `nls` turns plain-English requests into exact `ffmpeg`, `jq`, `grep`,
-`find` and `tar` commands.
+`find`, `tar` and `git` commands.
 It works fully offline: no LLM, no network, no runtime dependencies. It is
 written in C11 using only the standard library, and every command template is
 compiled into the binary.
@@ -14,7 +14,7 @@ $ nls jq "get .name from users.json where .age > 30"
 jq 'map(select(.age > 30) | .name)' users.json
 ```
 
-Supported tools: **ffmpeg**, **jq**, **grep**, **find** and **tar**
+Supported tools: **ffmpeg**, **jq**, **grep**, **find**, **tar** and **git**
 (see `natural_language_shell_architecture_plan.md`).
 
 ## Build
@@ -95,6 +95,16 @@ Quote the whole prompt so your shell doesn't interpret `>`, `'` or `*`.
 | `tar "compress src/ into backup.tar.gz excluding .git and node_modules"` | `tar --exclude='.git' --exclude='node_modules' -czvf backup.tar.gz src/` |
 | `tar "extract archive.tar.xz into dist/ without the top-level folder"` | `tar -xJvf archive.tar.xz -C dist/ --strip-components=1` |
 | `tar "list contents of backup.tar.gz"` | `tar -tzvf backup.tar.gz` |
+| `git "undo last 2 commits keep changes staged"` | `git reset --soft HEAD~2` |
+| `git "squash last 4 commits with message 'login flow'"` | `git reset --soft HEAD~4 && git commit -m 'login flow'` |
+| `git "commits touching src/lexer.c in last 7 days"` | `git log --since='7 days ago' -p -- src/lexer.c` |
+| `git "find commit that added 'inspect.c'"` | `git log -S 'inspect.c' --oneline` |
+| `git "commits on feature-x not on main"` | `git log --oneline main..feature-x` |
+| `git "who changed lines 10 to 20 of src/main.c"` | `git blame -L 10,20 src/main.c` |
+| `git "restore src/main.c from 3 commits ago"` | `git restore --source=HEAD~3 -- src/main.c` |
+| `git "restore deleted file src/old.c"` | `git checkout "$(git rev-list -n 1 HEAD -- src/old.c)^" -- src/old.c` |
+| `git "create branch feature-x from main"` | `git switch -c feature-x main` |
+| `git "delete merged branches"` | `git branch --merged HEAD \| grep -vE '^[*+]\|…(main\|master\|develop)$' \| xargs -r git branch -d` |
 
 Run `nls --list` to see all templates.
 
@@ -147,6 +157,13 @@ Run `nls --list` to see all templates.
      archive name one is derived (`compress src` → `src.tar.gz`). Also:
      `excluding X and Y` → `--exclude`, `without the top-level folder` /
      `strip 2` → `--strip-components`, `quietly` drops `-v`.
+   - For git, names are sorted by the word before them: the branch acted on
+     (`branch x`, `switch to x`, `merge x`) is `BRANCH`, the revision worked
+     from (`from main`, `onto main`, `3 commits ago` → `HEAD~3`, a hash) is
+     `REV`, and `not on main` / `since v1.0` is `EXCLUDE` (→ `main..`).
+     `last 3 commits` is a count, `by alice` / `by me` an author, `in the
+     last 2 weeks` → `--since='2 weeks ago'`, `lines 10 to 20` → `-L 10,20`.
+     Quoted text is a message or search string unless it looks like a path.
 3. **Expander** (`src/expander.c`): fills the winning template.
    - Placeholders: `{TYPE:i}`, `{TYPE:i|default}`, `{OUT_FILE|ext|suffix}` and
      `<< optional >>` groups.
@@ -171,6 +188,15 @@ Run `nls --list` to see all templates.
   a `.zip` name, two archives, a stray number) instead of guessing. A source
   or derived archive name starting with `-` gets a `./` prefix so it can't be
   read as an option.
+- git refuses a template that would drop part of the request (a lost
+  `by alice` or `from main` changes what a reset or restore does), a stray
+  number (`undo 5`), unquoted shell syntax (`switch to $(whoami)`), and
+  branch names git itself would reject (`..x`, `x.lock`, leading `-`).
+  Messages and search text are always single-quoted; file lists go after
+  `--`. Destructive commands (`reset --hard`, `clean -fd`, `restore`,
+  `branch -D`) are only run with `-x` after confirmation, and the safe
+  variant wins ties (`undo last commit` → `reset --soft`, `delete branch` →
+  `-d`, "which untracked files would be deleted" → `clean -n`).
 - JSON paths may only contain `[A-Za-z0-9_.[]?]`. A prompt like
   `get .a;rm in data.json` is rejected.
 

@@ -76,6 +76,17 @@ static int slots_used(const ParseContext *ctx, const CommandTemplate *tpl) {
             memcpy(seen[nseen++], "EXT:0", 6);
         }
     }
+    /* git builders consume slots without a {TYPE:i} placeholder */
+    if (ctx->tool == TOOL_GIT) {
+        const char *t = tpl->flag_template;
+        if (strstr(t, "{PATHS") && nl_find_slot(ctx, SLOT_FILE, 0)) used++;
+        if (strstr(t, "{AUTHOR}") && nl_find_slot(ctx, SLOT_AUTHOR, 0)) used++;
+        if (strstr(t, "{SPAN}") || strstr(t, "{BASE}") || strstr(t, "{COMMITS}") ||
+            strstr(t, "{TARGET}")) {
+            if (nl_find_slot(ctx, SLOT_NUM, 0)) { used++; memcpy(seen[nseen++], "NUM:0", 6); }
+            if (nl_find_slot(ctx, SLOT_REV, 0)) { used++; memcpy(seen[nseen++], "REV:0", 6); }
+        }
+    }
     for (const char *p = tpl->flag_template; (p = strchr(p, '{')) != NULL; p++) {
         const char *colon = p + 1;
         while ((*colon >= 'A' && *colon <= 'Z') || *colon == '_') colon++;

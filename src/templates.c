@@ -580,6 +580,399 @@ const CommandTemplate NL_TEMPLATES[] = {
       "tar{EXCLUDES} {TAR_FLAGS|x} {ARCHIVE}<< -C {DEST:0}>><< --strip-components={NUM:0}>>{MEMBERS}",
       SHAPE_ANY },
 
+    /* =============================== git ================================
+     * The lexer sorts names into BRANCH (acted on: "branch x", "switch to
+     * x"), REV (worked from: "from main", "3 commits ago", a hash) and
+     * EXCLUDE ("not on main", "since v1.0"); "last 3 commits" is NUM, and
+     * "commits" / "the last commit" become the intents "history" /
+     * "@last". As with find, every slot the user gave must be used,
+     * so a template that can't express part of the request is refused.
+     * Builders (see expander.c): {PATHS} " -- f..." | {AUTHOR} | {SPAN}
+     * (diff range) | {BASE} (rebase base) | {COMMITS} (revert targets).
+     * Order matters on ties: undo / revert / amend come before show, the
+     * safe variant (soft reset, -d, clean -n) before the destructive one. */
+#define B  SLOT_BRANCH
+#define V  SLOT_REV
+#define X  SLOT_EXCLUDE
+#define GIT_UNDO   "undo", "uncommit", "rollback", "roll", "back", "cancel", "reset", "@last"
+#define GIT_LOGW   "log", "history", "show", "list", "view", "see", "display", "print"
+#define GIT_LOGOPT "{AUTHOR}<< {TIME:0}>><< {TIME:1}>>"
+#define GIT_MSG    "<< -m {QUOTED_STR:0}>>"
+
+    { TOOL_GIT, "git_unstage", "Unstage files, keeping their changes",
+      "unstage src/main.c",
+      KW("unstage", "unstaged", "unadd", "unstaging", "staging", "index"), REQ(0),
+      "git restore --staged{PATHS|.}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_undo_soft", "Undo the last N commits, keeping their changes staged",
+      "undo last 2 commits keep changes staged",
+      KW(GIT_UNDO, "soft", "staged", "keep", "keeping"), REQ(0),
+      "git reset --soft {TARGET}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_undo_mixed", "Undo the last N commits, keeping their changes unstaged",
+      "undo the last commit and unstage its changes",
+      KW(GIT_UNDO, "mixed", "unstaged", "unstage", "unstaging"), REQ(0),
+      "git reset --mixed {TARGET}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_undo_hard", "Delete the last N commits AND their changes (destructive)",
+      "throw away the last commit and its changes",
+      KW(GIT_UNDO, "hard", "discard", "discarding", "throw", "away", "lose", "losing", "destroy",
+         "delete", "drop", "erase", "wipe", "permanently", "completely"), REQ(0),
+      "git reset --hard {TARGET}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_revert", "Revert commits with new undo commits (safe after pushing)",
+      "revert the last commit",
+      KW("revert", "reverse", "undo", "pushed", "public", "shared", "safely", "safe", "inverse",
+         "already", "@last", "@commit"), REQ(0),
+      "git revert --no-edit {COMMITS}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_undo_reset", "Undo an accidental reset (back to where HEAD just was)",
+      "undo the last reset",
+      KW("@undoreset"), REQ(0),
+      "git reset --hard 'HEAD@{1}'", SHAPE_ANY },
+
+    { TOOL_GIT, "git_undo_merge", "Undo the last merge or rebase (before pushing)",
+      "undo the rebase",
+      KW("@undorebase"), REQ(0),
+      "git reset --hard ORIG_HEAD", SHAPE_ANY },
+
+    { TOOL_GIT, "git_undo_amend", "Undo the last amend, keeping its changes staged",
+      "undo the amend",
+      KW("@undoamend"), REQ(0),
+      "git reset --soft 'HEAD@{1}'", SHAPE_ANY },
+
+    { TOOL_GIT, "git_squash", "Squash the last N commits into one",
+      "squash last 4 commits",
+      KW("squash", "combine", "meld", "fold", "collapse", "join", "merge", "message", "@last"),
+      REQ(N),
+      "git reset --soft HEAD~{NUM:0} && git commit" GIT_MSG, SHAPE_ANY },
+
+    { TOOL_GIT, "git_rebase_interactive", "Interactively edit, reorder or squash recent commits",
+      "interactively rebase the last 5 commits",
+      KW("rebase", "interactive", "interactively", "reorder", "reword", "edit", "fixup",
+         "rewrite", "clean", "tidy", "cleanup", "onto"), REQ(0),
+      "git rebase -i {BASE}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_rebase", "Rebase the current branch onto another",
+      "rebase onto main",
+      KW("rebase", "onto", "replay", "catch", "update"), REQ(V),
+      "git rebase {REV:0}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_pull_rebase", "Pull and replay local commits on top (no merge commit)",
+      "pull with rebase",
+      KW("pull", "rebase", "sync", "update", "latest", "linear"), REQ(0),
+      "git pull --rebase", SHAPE_ANY },
+
+    { TOOL_GIT, "git_amend", "Add staged changes (or files) to the last commit, same message",
+      "add src/main.c to the last commit",
+      KW("amend", "add", "forgot", "forgotten", "include", "@tolast", "staged", "missing",
+         "@last"), REQ(0),
+      "<<git add{PATHS} && >>git commit --amend --no-edit", SHAPE_ANY },
+
+    { TOOL_GIT, "git_amend_message", "Change the last commit's message",
+      "change the last commit message to 'fix login redirect'",
+      KW("amend", "change", "edit", "fix", "reword", "message", "update", "rename", "@last"),
+      REQ(S),
+      "git commit --amend -m {QUOTED_STR:0}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_commit", "Commit staged changes (or given files) with a message",
+      "commit with message 'fix login bug'",
+      KW("commit", "save", "record", "message", "checkin"), REQ(S),
+      "git commit -m {QUOTED_STR:0}{PATHS}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_commit_all", "Stage everything, new files included, and commit",
+      "commit all changes with message 'wip'",
+      KW("commit", "all", "everything", "including", "untracked", "new", "stage", "add",
+         "changes", "message"), REQ(S),
+      "git add -A && git commit -m {QUOTED_STR:0}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_log", "Show commits (filter by author, date, path or count)",
+      "commits by alice in the last 2 weeks",
+      KW(GIT_LOGW, "recent", "latest"), REQ(0),
+      "git log --oneline" GIT_LOGOPT "<< -n {NUM:0}>>{PATHS}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_count", "Count commits (optionally by author, date, path or branch)",
+      "how many commits by alice since 2024-01-01",
+      KW("count", "how", "many", "number", "total"), REQ(0),
+      "git rev-list --count" GIT_LOGOPT " {REV:0|HEAD}{PATHS}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_diff", "Show changes: working tree, last N commits, or against a branch",
+      "what changed in the last 3 commits",
+      KW("diff", "changes", "changed", "show", "what", "unstaged", "modified", "uncommitted",
+         "difference", "differences", "compare", "local", "working", "between"), REQ(0),
+      "git diff{SPAN}{PATHS}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_diff_staged", "Show staged changes (what the next commit will contain)",
+      "show staged changes",
+      KW("diff", "changes", "show", "what", "staged", "cached", "index", "committed"), REQ(0),
+      "git diff --staged<< {REV:0}>>{PATHS}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_diff_names", "List the files changed (working tree, last N commits, a branch)",
+      "files changed in the last 3 commits",
+      KW("files", "names", "filenames", "which", "list", "changed", "modified", "touched",
+         "only", "what"), REQ(0),
+      "git diff --name-only{SPAN}{PATHS}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_log_patch", "Show commits with their diffs, e.g. everything touching a file",
+      "commits touching src/lexer.c in last 7 days",
+      KW(GIT_LOGW, "touching", "touched", "touch", "changes", "changed", "modified", "patch",
+         "patches", "diffs", "affecting", "affected", "edited", "edits", "changing"), REQ(0),
+      "git log" GIT_LOGOPT "<< -n {NUM:0}>> -p{PATHS}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_log_follow", "Full history of one file, following renames",
+      "full history of src/lexer.c including renames",
+      KW("follow", "following", "renames", "renamed", "rename", "moves", "moved",
+         "full"), REQ(F),
+      "git log --follow" GIT_LOGOPT " -p{PATHS}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_pickaxe", "Find commits that added or removed a string in the code",
+      "find commit that added 'inspect.c'",
+      KW("history", "find", "which", "when", "added", "removed", "introduced", "deleted", "add",
+         "remove", "introduce", "delete", "code", "string", "search"), REQ(S),
+      "git log -S {QUOTED_STR:0} --oneline" GIT_LOGOPT "{PATHS}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_file_added", "Find the commit that added a file",
+      "which commit added src/inspect.c",
+      KW("find", "which", "when", "added", "add", "introduced", "introduce",
+         "created", "create", "first"), REQ(F),
+      "git log --diff-filter=A --oneline" GIT_LOGOPT "{PATHS}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_file_deleted", "Find the commit that deleted a file",
+      "which commit deleted src/old.c",
+      KW("find", "which", "when", "deleted", "delete", "removed", "remove", "gone"),
+      REQ(F),
+      "git log --diff-filter=D --oneline" GIT_LOGOPT "{PATHS}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_log_message", "Find commits whose message mentions something",
+      "commits with message containing 'fix'",
+      KW("history", "message", "messages", "mentioning", "mention", "mentions", "saying", "says",
+         "titled", "subject", "containing", "contains", "grep", "find", "search", "which",
+         "about"), REQ(S),
+      "git log --oneline --grep={QUOTED_STR:0}" GIT_LOGOPT "{PATHS}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_log_range", "Commits on one branch that aren't on another",
+      "commits on feature-x not on main",
+      KW("history", "@notin", "ahead", "only", "unique", "between"), REQ(X),
+      "git log --oneline" GIT_LOGOPT " {EXCLUDE:0}..{REV:0|HEAD}{PATHS}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_unpushed", "Commits not pushed yet",
+      "commits I haven't pushed yet",
+      KW("history", "unpushed", "pushed", "push", "outgoing", "ahead", "yet"), REQ(0),
+      "git log --oneline '@{upstream}..HEAD'", SHAPE_ANY },
+
+    { TOOL_GIT, "git_unpulled", "Commits on the remote you haven't pulled yet",
+      "commits on the remote I haven't pulled",
+      KW("history", "unpulled", "pulled", "pull", "incoming", "behind", "remote", "upstream",
+         "fetch"), REQ(0),
+      "git fetch && git log --oneline 'HEAD..@{upstream}'", SHAPE_ANY },
+
+    { TOOL_GIT, "git_blame", "Who last changed each line of a file (or a line range)",
+      "who changed lines 10 to 20 of src/main.c",
+      KW("blame", "who", "wrote", "written", "author", "authored", "responsible", "annotate",
+         "changed", "touched"), REQ(F),
+      "git blame<< -L {LINES:0}>> {FILE:0}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_show_commit", "Show a commit's message and changed files (default: last)",
+      "show the last commit",
+      KW("show", "view", "inspect", "details", "detail", "what", "what's", "whats", "stat",
+         "summary", "describe", "info", "changed", "@last", "@commit"), REQ(0),
+      "git show --stat {REV:0|HEAD}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_show_file", "Print a file as it was at another commit or branch",
+      "show src/main.c from 3 commits ago",
+      KW("show", "view", "see", "print", "cat", "display", "version", "old", "contents",
+         "content", "looked", "state", "get"), REQ(V, F),
+      "git show {REV:0}:{FILE:0}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_restore_from", "Restore files from another commit or branch",
+      "restore src/main.c from 2 commits ago",
+      KW("restore", "recover", "bring", "back", "get", "checkout", "reset", "revert", "roll",
+         "copy", "take", "grab", "rollback"), REQ(V, F),
+      "git restore --source={REV:0}{PATHS}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_restore_deleted", "Bring back a deleted file from the last commit that had it",
+      "restore deleted file src/old.c",
+      KW("restore", "recover", "bring", "back", "undelete", "resurrect", "deleted", "lost",
+         "removed", "get"), REQ(F),
+      "git checkout \"$(git rev-list -n 1 HEAD -- {FILE:0})^\" -- {FILE:0}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_discard", "Discard uncommitted changes to files (destructive)",
+      "discard changes to src/main.c",
+      KW("discard", "revert", "undo", "reset", "throw", "away", "drop", "lose", "changes",
+         "local", "uncommitted", "restore", "edits", "modifications"), REQ(F),
+      "git restore{PATHS}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_untrack", "Stop tracking files but keep them on disk",
+      "stop tracking .env",
+      KW("untrack", "stop", "tracking", "track", "forget", "cached", "keep", "remove", "rm",
+         "ignore"), REQ(F),
+      "git rm -r --cached{PATHS}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_clean_dry", "Preview which untracked files a clean would delete",
+      "which untracked files would be deleted",
+      KW("clean", "untracked", "delete", "remove", "preview", "dry", "run", "would", "what",
+         "list", "show", "which"), REQ(0),
+      "git clean -nd{PATHS}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_clean", "Delete untracked files and folders (destructive)",
+      "delete untracked files",
+      KW("clean", "untracked", "delete", "remove", "wipe", "purge", "files"), REQ(0),
+      "git clean -fd{PATHS}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_clean_ignored", "Delete untracked AND ignored files, e.g. build output",
+      "delete untracked and ignored files",
+      KW("clean", "untracked", "delete", "remove", "wipe", "purge", "files", "ignored",
+         "gitignored", "build", "artifacts"), REQ(0),
+      "git clean -fdx{PATHS}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_branch_create", "Create a branch and switch to it (optionally from a base)",
+      "create branch feature-x from main",
+      KW("create", "new", "make", "start", "branch", "open"), REQ(B),
+      "git switch -c {BRANCH:0}<< {REV:0}>>", SHAPE_ANY },
+
+    { TOOL_GIT, "git_switch_prev", "Switch back to the previous branch",
+      "switch back to the previous branch",
+      KW("switch", "checkout", "go", "back", "previous", "prior", "other", "return", "branch"),
+      REQ(0),
+      "git switch -", SHAPE_ANY },
+
+    { TOOL_GIT, "git_switch", "Switch to a branch",
+      "switch to main",
+      KW("switch", "checkout", "go", "change", "move", "jump", "branch", "back", "return"),
+      REQ(B),
+      "git switch {BRANCH:0}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_branch_delete", "Delete local branches (only if merged)",
+      "delete branch feature-x",
+      KW("delete", "remove", "drop", "branch", "erase", "local"), REQ(B),
+      "git branch -d {BRANCH:0}<< {BRANCH:1}>><< {BRANCH:2}>>", SHAPE_ANY },
+
+    { TOOL_GIT, "git_branch_delete_force", "Force-delete local branches, even unmerged ones",
+      "force delete branch feature-x",
+      KW("delete", "remove", "drop", "branch", "erase", "force", "forcefully", "unmerged",
+         "anyway"), REQ(B),
+      "git branch -D {BRANCH:0}<< {BRANCH:1}>><< {BRANCH:2}>>", SHAPE_ANY },
+
+    { TOOL_GIT, "git_branch_delete_remote", "Delete a branch on the remote (origin)",
+      "delete branch feature-x on origin",
+      KW("delete", "remove", "drop", "branch", "erase", "remote", "origin", "remotely",
+         "github", "gitlab", "server", "upstream"), REQ(B),
+      "git push origin --delete {BRANCH:0}<< {BRANCH:1}>><< {BRANCH:2}>>", SHAPE_ANY },
+
+    { TOOL_GIT, "git_branch_rename", "Rename a branch (the current one if only a new name)",
+      "rename branch old-name to new-name",
+      KW("rename", "branch", "move", "call"), REQ(B),
+      "git branch -m {BRANCH:0}<< {BRANCH:1}>>", SHAPE_ANY },
+
+    { TOOL_GIT, "git_branch_list", "List branches, most recently committed first",
+      "list branches by most recent commit",
+      KW("list", "show", "branch", "recent", "sorted", "sort", "latest", "all", "view", "date",
+         "@last"), REQ(0),
+      "git branch --sort=-committerdate", SHAPE_ANY },
+
+    { TOOL_GIT, "git_branch_merged", "List branches already merged (into the current or a branch)",
+      "branches merged into main",
+      KW("merged", "branch", "list", "show", "which", "done", "finished"), REQ(0),
+      "git branch --merged<< {REV:0}>>", SHAPE_ANY },
+
+    { TOOL_GIT, "git_branch_delete_merged", "Delete local branches already merged (keeps main/master/develop)",
+      "delete merged branches",
+      KW("@delmerged", "@delmerged+"), REQ(0),
+      "git branch --merged {REV:0|HEAD} | grep -vE '^[*+]|^[[:space:]]*(main|master|develop)$'"
+      " | xargs -r git branch -d", SHAPE_ANY },
+
+    { TOOL_GIT, "git_merge", "Merge a branch into the current one (or into a target)",
+      "merge feature-x into main",
+      KW("merge", "integrate", "combine", "bring"), REQ(B),
+      "<<git switch {REV:0} && >>git merge {BRANCH:0}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_merge_squash", "Squash-merge a branch into one staged change",
+      "squash merge feature-x",
+      KW("merge", "squash", "squashed", "single", "one"), REQ(B),
+      "<<git switch {REV:0} && >>git merge --squash {BRANCH:0}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_merge_abort", "Abort an in-progress merge",
+      "abort the merge",
+      KW("abort", "cancel", "stop", "quit", "merge", "merging", "conflict", "conflicts"), REQ(0),
+      "git merge --abort", SHAPE_ANY },
+
+    { TOOL_GIT, "git_rebase_abort", "Abort an in-progress rebase",
+      "abort the rebase",
+      KW("abort", "cancel", "stop", "quit", "rebase", "rebasing"), REQ(0),
+      "git rebase --abort", SHAPE_ANY },
+
+    { TOOL_GIT, "git_cherry_pick", "Apply a commit from elsewhere onto the current branch",
+      "cherry-pick a1b2c3d",
+      KW("cherry-pick", "cherrypick", "cherry", "pick", "copy", "apply", "grab", "port",
+         "backport", "@commit"), REQ(V),
+      "git cherry-pick {REV:0}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_push_upstream", "Push the current (or a named) branch and set its upstream",
+      "push the new branch and set upstream",
+      KW("push", "upstream", "set", "track", "tracking", "publish", "first", "new", "branch",
+         "remote", "origin"), REQ(0),
+      "git push -u origin {BRANCH:0|HEAD}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_push_force", "Force-push safely (refuses if someone else pushed meanwhile)",
+      "force push after rebase",
+      KW("push", "force", "forcefully", "overwrite", "rewrite", "rebase", "safely", "lease",
+         "amend"), REQ(0),
+      "git push --force-with-lease", SHAPE_ANY },
+
+    { TOOL_GIT, "git_tag", "Tag a commit (annotated when a message is given)",
+      "tag the current commit as v1.2.0",
+      KW("tag", "release", "mark", "version", "create", "label"), REQ(B),
+      "git tag<< -a -m {QUOTED_STR:0}>> {BRANCH:0}<< {REV:0}>>", SHAPE_ANY },
+
+    { TOOL_GIT, "git_tag_list", "List tags, newest first",
+      "list tags",
+      KW("list", "show", "tag", "all", "view", "which", "recent", "latest"), REQ(0),
+      "git tag --sort=-creatordate", SHAPE_ANY },
+
+    { TOOL_GIT, "git_tag_delete", "Delete a local tag",
+      "delete tag v1.2.0",
+      KW("delete", "remove", "drop", "tag", "erase", "untag"), REQ(B),
+      "git tag -d {BRANCH:0}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_tag_push", "Push all tags to origin",
+      "push tags",
+      KW("push", "tag", "publish", "upload", "release"), REQ(0),
+      "git push origin --tags", SHAPE_ANY },
+
+    { TOOL_GIT, "git_stash", "Stash uncommitted changes (optionally named, or only some files)",
+      "stash my changes with message 'wip login'",
+      KW("stash", "shelve", "aside", "temporarily", "park", "hide", "wip", "save", "changes",
+         "message"), REQ(0),
+      "git stash push" GIT_MSG "{PATHS}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_stash_untracked", "Stash changes including untracked files",
+      "stash everything including untracked files",
+      KW("stash", "shelve", "aside", "untracked", "including", "new", "everything", "all"),
+      REQ(0),
+      "git stash push -u" GIT_MSG "{PATHS}", SHAPE_ANY },
+
+    { TOOL_GIT, "git_stash_pop", "Re-apply the latest stash and drop it",
+      "pop the stash",
+      KW("pop", "unstash", "restore", "back", "stash", "stashed", "reapply", "get", "bring",
+         "apply"), REQ(0),
+      "git stash pop", SHAPE_ANY },
+
+    { TOOL_GIT, "git_stash_apply", "Apply the latest stash but keep it in the list",
+      "apply the stash but keep it",
+      KW("stash", "apply", "keep", "keeping", "copy", "without", "removing", "stashed"), REQ(0),
+      "git stash apply", SHAPE_ANY },
+
+    { TOOL_GIT, "git_stash_list", "List stashes",
+      "list stashes",
+      KW("stash", "list", "show", "view", "all", "what"), REQ(0),
+      "git stash list", SHAPE_ANY },
+
+    { TOOL_GIT, "git_reflog", "Show where HEAD has been (find lost commits or branches)",
+      "find lost commits",
+      KW("reflog", "show", "view", "lost", "recover", "find", "rescue", "dangling", "missing", "where", "been",
+         "orphaned", "deleted", "branch"), REQ(0),
+      "git reflog -n {NUM:0|30}", SHAPE_ANY },
+
 };
 
 const size_t NL_TEMPLATE_COUNT = sizeof NL_TEMPLATES / sizeof NL_TEMPLATES[0];

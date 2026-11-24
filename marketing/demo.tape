@@ -1,7 +1,7 @@
 # Terminal demo GIF, recorded with VHS: https://github.com/charmbracelet/vhs
 #   brew install vhs
 #   make                                 # builds ./nls; the tape uses this build
-#   sh marketing/make-demo-media.sh      # creates marketing/demo/ (talk.mp4, users.json, src/, app.log, logs/, assets/, node_modules/, release-1.0.tgz, dist/)
+#   sh marketing/make-demo-media.sh      # creates marketing/demo/ (talk.mp4, users.json, src/, app.log, logs/, assets/, node_modules/, release-1.0.tgz, dist/, project/ git repo)
 #   vhs marketing/demo.tape              # writes marketing/nls-demo.gif
 # Run from the repo root.
 
@@ -93,6 +93,32 @@ Enter
 Sleep 3s
 
 Type `nls -x -y tar "extract release-1.0.tgz into dist/ without the top-level folder"`
+Sleep 400ms
+Enter
+Sleep 3.5s
+
+# 7. git: history search, blame ranges, branch comparison, squash
+Hide
+Type "cd project && clear"
+Enter
+Show
+
+Type `nls -x -y git "find commit that added 'def retry'"`
+Sleep 400ms
+Enter
+Sleep 2.5s
+
+Type `nls -x -y git "who changed lines 3 to 4 of src/server.py"`
+Sleep 400ms
+Enter
+Sleep 3s
+
+Type `nls -x -y git "commits on feature-login not on main"`
+Sleep 400ms
+Enter
+Sleep 2.5s
+
+Type `nls git "squash last 3 commits with message 'login flow'"`
 Sleep 400ms
 Enter
 Sleep 3.5s

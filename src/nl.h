@@ -10,7 +10,7 @@
 #define NL_MAX_SLOTS      16
 #define NL_MAX_TOKENS     32
 #define NL_MAX_RAW        64
-#define NL_MAX_KEYWORDS   16
+#define NL_MAX_KEYWORDS   28
 #define NL_MAX_REQUIRED   6
 #define NL_MAX_INPUT      2048
 #define NL_ARENA_SIZE     4096
@@ -24,6 +24,7 @@ typedef enum {
     TOOL_GREP,
     TOOL_FIND,
     TOOL_TAR,
+    TOOL_GIT,
     TOOL_COUNT
 } ToolId;
 
@@ -43,11 +44,17 @@ typedef enum {
     SLOT_JSON_PATH,  /* .users[].email, .status                      (jq only)      */
     SLOT_SIZE,       /* find: "larger than 100MB" -> "+100M", "under 1k" -> "-1024c" */
     SLOT_EXCLUDE,    /* find: a directory / pattern to prune ("ignoring build");
-                        tar: an --exclude pattern                                  */
-    SLOT_LINES,      /* find: "less than 100 lines" -> "< 100" (awk NR comparison)   */
+                        tar: an --exclude pattern; git: "not on main" (log main..)  */
+    SLOT_LINES,      /* find: "less than 100 lines" -> "< 100" (awk NR comparison);
+                        git: "lines 10 to 20" -> "10,20" (blame -L)               */
     SLOT_ARCHIVE,    /* tar: a path ending in .tar, .tar.gz, .tgz, .tar.xz, ...       */
     SLOT_DEST,       /* tar: "into dist/" -> extraction folder, or the archive name
                         when creating ("compress src into backup")                 */
+    SLOT_REV,        /* git: a revision to work from: "from main", "3 commits ago"
+                        -> HEAD~3, a1b2c3d, HEAD~2                                 */
+    SLOT_BRANCH,     /* git: a branch / tag acted on: "branch feature-x", "to main" */
+    SLOT_AUTHOR,     /* git: "by alice", "by me" -> "me"                            */
+    /* git TIME is a whole option: "--since='7 days ago'", "--until='2024-01-31'" */
     SLOT_TYPE_COUNT
 } SlotType;
 
@@ -97,7 +104,8 @@ typedef struct {
     char find_kind;                          /* find: 'f', 'd', 'l', or 'a' (any type) */
     bool find_kind_set;                      /* find: the user named a file type     */
     char find_depth[8];                      /* find: -maxdepth value, "" if none    */
-    const char *stray;                       /* find/tar: a number nls couldn't place */
+    const char *stray;                       /* find/tar/git: a number nls couldn't place */
+    bool git_last;                           /* git: "the last commit" was mentioned  */
     bool overflow;                           /* too many tokens/slots or arena full */
 } ParseContext;
 
