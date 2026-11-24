@@ -1061,6 +1061,190 @@ const CommandTemplate NL_TEMPLATES[] = {
          "detailed", "diagnose", "everything"), REQ(U),
       "curl -v{OPTS}{HEADERS} -o /dev/null {URL}", SHAPE_ANY },
 
+    /* ============================== magick ==============================
+     * ImageMagick 7 (`magick`). The lexer finds the input image(s) (FILE,
+     * globs like 'frames/\*.png' are passed quoted: magick expands them
+     * itself), the output (DEST: "to out.webp", "into small/"), formats
+     * (EXT; "to webp" is moved last), a geometry (RES: 800x600, width 800,
+     * 50%, 2x), quality (NUM), an amount (FACTOR: fuzz %, degrees, blur
+     * sigma, border px), a colour (COLOR) and resize modifiers (flags '!'
+     * exact, '>' only shrink). Every slot given must be used, so e.g. a
+     * quality on a rotate is refused rather than dropped. Builders
+     * (expander.c): {RESIZE} {CROP} {QUALITY} {INPUTS} {GLOB} {DELAY} {OUT_NAME}.
+     * {OUT_FILE||?sfx} adds the suffix only when the name would otherwise
+     * overwrite the input. Resize and convert come first: they are the
+     * defaults when no verb is recognized ("hero.png 800x600", "a.png to webp"). */
+#define MOUT(sfx) "{OUT_FILE||?_" sfx "}"
+#define C  SLOT_COLOR
+#define D  SLOT_DEST
+
+    { TOOL_MAGICK, "magick_resize", "Resize an image (keeps aspect ratio; 'exactly' or 'only shrink' to change that)",
+      "resize hero.png to width 800 convert to webp quality 85",
+      KW("resize", "scale", "shrink", "downscale", "upscale", "enlarge", "smaller", "bigger",
+         "larger", "width", "height", "size", "fit", "dimensions"), REQ(F, R),
+      "magick {FILE:0}{RESIZE}{QUALITY} " MOUT("resized"), SHAPE_ANY },
+
+    { TOOL_MAGICK, "magick_convert", "Convert an image to another format",
+      "convert hero.png to webp quality 85",
+      KW("convert", "change", "turn", "save", "export", "transcode", "format"), REQ(F, E),
+      "magick {FILE:0}{RESIZE}{QUALITY} {OUT_FILE}", SHAPE_ANY },
+
+    { TOOL_MAGICK, "magick_convert_to", "Convert an image to an explicit output file",
+      "convert hero.png to hero.avif",
+      KW("convert", "change", "turn", "save", "export", "transcode", "format"), REQ(F, D),
+      "magick {FILE:0}{RESIZE}{QUALITY} {OUT_FILE}", SHAPE_ANY },
+
+    { TOOL_MAGICK, "magick_compress", "Shrink file size for the web (strip metadata, quality 80)",
+      "compress photo.jpg",
+      KW("compress", "optimize", "optimise", "smaller", "reduce", "lighter", "web", "shrink",
+         "minify", "lossy", "filesize"), REQ(F),
+      "magick {FILE:0}{RESIZE} -strip -quality {NUM:0|80} " MOUT("compressed"), SHAPE_ANY },
+
+    { TOOL_MAGICK, "magick_strip", "Remove EXIF/GPS metadata (auto-orients first so photos stay upright)",
+      "remove exif metadata from photo.jpg",
+      KW("strip", "metadata", "exif", "gps", "location", "privacy", "profile", "profiles",
+         "remove", "clean", "scrub", "anonymize"), REQ(F),
+      "magick {FILE:0} -auto-orient -strip " MOUT("clean"), SHAPE_ANY },
+
+    { TOOL_MAGICK, "magick_transparent", "Make a background colour transparent (default white, 5% fuzz)",
+      "make sprite.png transparent background",
+      KW("transparent", "transparency", "background", "remove", "alpha", "cutout", "knockout",
+         "see-through", "clear", "bg"), REQ(F),
+      "magick {FILE:0} -fuzz {FACTOR:0|5}% -transparent {COLOR:0|white} {OUT_FILE|png|_transparent}", SHAPE_ANY },
+
+    { TOOL_MAGICK, "magick_flatten", "Replace transparency with a solid background (default white)",
+      "put logo.png on a white background",
+      KW("flatten", "background", "solid", "fill", "opaque", "behind", "replace", "put",
+         "onto", "bg"), REQ(F, C),
+      "magick {FILE:0} -background {COLOR:0} -alpha remove -alpha off " MOUT("flat"), SHAPE_ANY },
+
+    { TOOL_MAGICK, "magick_flatten_white", "Remove transparency (white background)",
+      "remove transparency from logo.png",
+      KW("flatten", "opaque", "transparency", "alpha", "remove", "drop", "strip", "solid"), REQ(F),
+      "magick {FILE:0} -background white -alpha remove -alpha off " MOUT("flat"), SHAPE_ANY },
+
+    { TOOL_MAGICK, "magick_rotate", "Rotate clockwise (default 90 degrees)",
+      "rotate photo.jpg 90 degrees",
+      KW("rotate", "rotated", "turn", "clockwise", "right", "cw", "degrees"), REQ(F),
+      "magick {FILE:0} -rotate {FACTOR:0|90} " MOUT("rotated"), SHAPE_ANY },
+
+    { TOOL_MAGICK, "magick_rotate_ccw", "Rotate counter-clockwise (default 90 degrees)",
+      "rotate photo.jpg counterclockwise",
+      KW("rotate", "rotated", "turn", "counterclockwise", "counter-clockwise", "anticlockwise",
+         "counter", "left", "ccw"), REQ(F),
+      "magick {FILE:0} -rotate -{FACTOR:0|90} " MOUT("rotated"), SHAPE_ANY },
+
+    { TOOL_MAGICK, "magick_auto_orient", "Fix sideways photos using their EXIF orientation",
+      "fix the orientation of photo.jpg",
+      KW("orientation", "orient", "auto-orient", "upright", "sideways", "exif", "fix",
+         "straighten", "correct"), REQ(F),
+      "magick {FILE:0} -auto-orient " MOUT("oriented"), SHAPE_ANY },
+
+    { TOOL_MAGICK, "magick_flop", "Mirror horizontally (left-right, -flop)",
+      "mirror photo.jpg horizontally",
+      KW("mirror", "flop", "horizontal", "horizontally", "flip", "left-right"), REQ(F),
+      "magick {FILE:0} -flop " MOUT("mirrored"), SHAPE_ANY },
+
+    { TOOL_MAGICK, "magick_flip", "Flip vertically (upside down, -flip)",
+      "flip photo.jpg upside down",
+      KW("flip", "vertical", "vertically", "upside", "down", "top-bottom"), REQ(F),
+      "magick {FILE:0} -flip " MOUT("flipped"), SHAPE_ANY },
+
+    { TOOL_MAGICK, "magick_grayscale", "Convert to grayscale",
+      "make photo.jpg black and white",
+      KW("grayscale", "greyscale", "gray", "grey", "monochrome", "desaturate", "colorless"), REQ(F),
+      "magick {FILE:0} -colorspace Gray " MOUT("gray"), SHAPE_ANY },
+
+    { TOOL_MAGICK, "magick_crop", "Crop to a size around the center",
+      "crop photo.jpg to 800x600",
+      KW("crop", "cut", "trim", "center", "centre", "middle"), REQ(F, R),
+      "magick {FILE:0} -gravity center -crop {CROP} +repage " MOUT("cropped"), SHAPE_ANY },
+
+    { TOOL_MAGICK, "magick_trim", "Trim uniform borders / whitespace around the image",
+      "trim the whitespace around logo.png",
+      KW("trim", "whitespace", "autocrop", "borders", "edges", "empty", "space", "margins",
+         "padding", "around"), REQ(F),
+      "magick {FILE:0} -trim +repage " MOUT("trimmed"), SHAPE_ANY },
+
+    { TOOL_MAGICK, "magick_pad", "Pad to an exact canvas size, centered (default white)",
+      "pad photo.jpg to 1080x1080 with a black background",
+      KW("pad", "padding", "canvas", "extent", "letterbox", "square", "center", "centre",
+         "extend", "fill"), REQ(F, R),
+      "magick {FILE:0} -gravity center -background {COLOR:0|white} -extent {RES:0} " MOUT("padded"), SHAPE_ANY },
+
+    { TOOL_MAGICK, "magick_thumbnail", "Make a thumbnail (fits in 256x256 by default, strips metadata)",
+      "make a 200x200 thumbnail of photo.jpg",
+      KW("thumbnail", "thumbnails", "thumb", "preview", "icon", "avatar"), REQ(F),
+      "magick {FILE:0} -thumbnail {RES:0|256x256} " MOUT("thumb"), SHAPE_ANY },
+
+    { TOOL_MAGICK, "magick_blur", "Gaussian blur (sigma, default 4)",
+      "blur photo.jpg by 8",
+      KW("blur", "blurred", "blurry", "soften", "gaussian", "smooth", "unfocus"), REQ(F),
+      "magick {FILE:0} -blur 0x{FACTOR:0|4} " MOUT("blurred"), SHAPE_ANY },
+
+    { TOOL_MAGICK, "magick_sharpen", "Sharpen (sigma, default 1)",
+      "sharpen photo.jpg",
+      KW("sharpen", "sharper", "crisp", "crisper", "enhance", "sharpness"), REQ(F),
+      "magick {FILE:0} -sharpen 0x{FACTOR:0|1} " MOUT("sharpened"), SHAPE_ANY },
+
+    { TOOL_MAGICK, "magick_border", "Add a border (default 10px black)",
+      "add a 10px white border to photo.jpg",
+      KW("border", "frame", "outline", "edge", "margin"), REQ(F),
+      "magick {FILE:0} -bordercolor {COLOR:0|black} -border {FACTOR:0|10} " MOUT("border"), SHAPE_ANY },
+
+    { TOOL_MAGICK, "magick_append", "Join images side by side (a horizontal strip / sprite sheet)",
+      "combine a.png b.png c.png side by side into sprite.png",
+      KW("combine", "join", "append", "merge", "side", "horizontal", "horizontally", "row",
+         "sprite", "spritesheet", "strip", "stitch", "concatenate"), REQ(F),
+      "magick{INPUTS} +append {OUT_NAME|appended|png}", SHAPE_ANY },
+
+    { TOOL_MAGICK, "magick_append_v", "Stack images on top of each other (vertical strip)",
+      "stack a.png b.png vertically into column.png",
+      KW("stack", "vertical", "vertically", "column", "top", "below", "above", "combine",
+         "join", "append", "stitch"), REQ(F),
+      "magick{INPUTS} -append {OUT_NAME|stacked|png}", SHAPE_ANY },
+
+    { TOOL_MAGICK, "magick_favicon", "Make a multi-size favicon.ico (16-256px)",
+      "make a favicon from logo.png",
+      KW("favicon", "ico", "icon", "icons", "browser", "website"), REQ(F),
+      "magick {FILE:0} -background none -define icon:auto-resize=256,64,48,32,16 {OUT_NAME|favicon|ico}", SHAPE_ANY },
+
+    { TOOL_MAGICK, "magick_gif", "Animate several images into a looping GIF (default 10 fps)",
+      "make a gif from 'frames/*.png' at 12 fps",
+      KW("gif", "animation", "animated", "animate", "loop", "looping", "slideshow", "frames",
+         "from"), REQ(F),
+      "magick{DELAY} -loop 0{INPUTS} {OUT_NAME|animation|gif}", SHAPE_ANY },
+
+    { TOOL_MAGICK, "magick_batch_convert", "Convert every image of one format in a folder (originals kept)",
+      "convert all png files in assets/ to webp",
+      KW("convert", "all", "every", "each", "batch", "bulk", "files", "folder", "directory",
+         "change", "turn", "mass"), REQ(E, E),
+      "magick mogrify -format {EXT:1}{RESIZE}{QUALITY} {GLOB}", SHAPE_ANY },
+
+    { TOOL_MAGICK, "magick_batch_resize", "Resize every image of one format into another folder (default resized/)",
+      "resize all jpg files in photos/ to width 1200 into small/",
+      KW("resize", "scale", "shrink", "all", "every", "each", "batch", "bulk", "files",
+         "folder", "directory", "mass", "downscale", "smaller"), REQ(E, R),
+      "mkdir -p {DEST:0|resized} && magick mogrify -path {DEST:0|resized}{RESIZE}{QUALITY} {GLOB}", SHAPE_ANY },
+
+    { TOOL_MAGICK, "magick_size", "Print the width and height",
+      "what are the dimensions of photo.jpg",
+      KW("dimensions", "dimension", "size", "width", "height", "resolution", "big", "large",
+         "wide", "tall", "pixels", "how"), REQ(F),
+      "magick identify -format '%wx%h\\n' {FILE:0}", SHAPE_ANY },
+
+    { TOOL_MAGICK, "magick_info", "Show format, size, colour space and file size",
+      "show info about photo.jpg",
+      KW("info", "information", "identify", "inspect", "describe", "format", "type", "what",
+         "show", "details"), REQ(F),
+      "magick identify {FILE:0}", SHAPE_ANY },
+
+    { TOOL_MAGICK, "magick_info_verbose", "Show every property, including EXIF metadata",
+      "show all metadata of photo.jpg",
+      KW("metadata", "exif", "verbose", "everything", "all", "properties", "full", "camera",
+         "details", "show", "list", "print", "read", "view"), REQ(F),
+      "magick identify -verbose {FILE:0}", SHAPE_ANY },
+
 };
 
 const size_t NL_TEMPLATE_COUNT = sizeof NL_TEMPLATES / sizeof NL_TEMPLATES[0];

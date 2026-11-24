@@ -1,7 +1,7 @@
 # Terminal demo GIF, recorded with VHS: https://github.com/charmbracelet/vhs
 #   brew install vhs
 #   make                                 # builds ./nls; the tape uses this build
-#   sh marketing/make-demo-media.sh      # creates marketing/demo/ (talk.mp4, users.json, src/, app.log, logs/, assets/, node_modules/, release-1.0.tgz, dist/, project/ git repo, data.json)
+#   sh marketing/make-demo-media.sh      # creates marketing/demo/ (talk.mp4, users.json, src/, app.log, logs/, assets/, node_modules/, release-1.0.tgz, dist/, project/ git repo, data.json, hero.png, sprite.png, frames/)
 #   vhs marketing/demo.tape              # writes marketing/nls-demo.gif
 # Run from the repo root.
 
@@ -140,6 +140,32 @@ Enter
 Sleep 3s
 
 Type `nls curl 'delete https://api.example.com/users/42 with token $TOKEN'`
+Sleep 400ms
+Enter
+Sleep 3.5s
+
+# 9. magick: resize + format + quality in one sentence, background removal, a GIF from frames
+Hide
+Type "clear"
+Enter
+Show
+
+Type `nls -x -y magick "resize hero.png to width 800 convert to webp quality 85"`
+Sleep 400ms
+Enter
+Sleep 2.5s
+
+Type `nls -x -y magick "what are the dimensions of hero.webp"`
+Sleep 400ms
+Enter
+Sleep 2.5s
+
+Type `nls magick "make sprite.png transparent background"`
+Sleep 400ms
+Enter
+Sleep 3s
+
+Type `nls magick "make a gif from frames/*.png at 12 fps"`
 Sleep 400ms
 Enter
 Sleep 3.5s

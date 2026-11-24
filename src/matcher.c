@@ -67,9 +67,10 @@ static int slots_used(const ParseContext *ctx, const CommandTemplate *tpl) {
      * target format (EXT:0) unless its extension is forced with '!'. */
     const char *out = strstr(tpl->flag_template, "{OUT_FILE");
     if (out) {
-        if (nl_find_slot(ctx, SLOT_FILE, 1)) {
+        if (ctx->tool == TOOL_MAGICK ? nl_find_slot(ctx, SLOT_DEST, 0) != NULL
+                                     : nl_find_slot(ctx, SLOT_FILE, 1) != NULL) {
             used++;
-            memcpy(seen[nseen++], "FILE:1", 7);
+            memcpy(seen[nseen++], ctx->tool == TOOL_MAGICK ? "DEST:0" : "FILE:1", 7);
         }
         if (strncmp(out, "{OUT_FILE|!", 11) != 0 && nl_find_slot(ctx, SLOT_EXT, 0)) {
             used++;
@@ -94,6 +95,22 @@ static int slots_used(const ParseContext *ctx, const CommandTemplate *tpl) {
         if (nl_find_slot(ctx, SLOT_DEST, 0) && strstr(t, "{OUTPUT")) used++;
         if (nl_find_slot(ctx, SLOT_FILE, 0) && (body || strstr(t, "{OUTPUT|O}"))) used++;
         if (nl_find_slot(ctx, SLOT_QUOTED_STR, 0) && strstr(t, "{BODY}")) used++;
+    }
+    /* magick builders consume slots without a {TYPE:i} placeholder */
+    if (ctx->tool == TOOL_MAGICK) {
+        const char *t = tpl->flag_template;
+        if ((strstr(t, "{RESIZE}") || strstr(t, "{CROP}")) && nl_find_slot(ctx, SLOT_RES, 0)) used++;
+        if (strstr(t, "{QUALITY}") && nl_find_slot(ctx, SLOT_NUM, 0)) used++;
+        if (strstr(t, "{DELAY}") && nl_find_slot(ctx, SLOT_FPS, 0)) used++;
+        if (strstr(t, "{INPUTS}")) used += nl_count_slots(ctx, SLOT_FILE);
+        if (strstr(t, "{GLOB}")) {
+            if (nl_find_slot(ctx, SLOT_FILE, 0)) used++;
+            if (nl_find_slot(ctx, SLOT_EXT, 0)) { used++; memcpy(seen[nseen++], "EXT:0", 6); }
+        }
+        if (strstr(t, "{OUT_NAME")) {
+            if (nl_find_slot(ctx, SLOT_DEST, 0)) used++;
+            if (nl_find_slot(ctx, SLOT_EXT, 0)) used++;
+        }
     }
     for (const char *p = tpl->flag_template; (p = strchr(p, '{')) != NULL; p++) {
         const char *colon = p + 1;
@@ -221,13 +238,18 @@ void nl_match(const ParseContext *ctx, MatchResult *out, bool verbose) {
      * Either way: the tool's first template that can run. */
     /* tar: "src/ into backup.tar.gz" creates, a bare archive name lists;
      * but never fall back when a verb was recognized ("extract src/"). */
-    /* curl: a bare URL means a plain GET. */
+    /* curl: a bare URL means a plain GET.
+     * magick: "hero.png 800x600" resizes, "a.png to webp" converts. */
     if (!out->best && (ctx->tool == TOOL_GREP || ctx->tool == TOOL_FIND ||
-                       ((ctx->tool == TOOL_TAR || ctx->tool == TOOL_CURL) && !out->blocked))) {
+                       ((ctx->tool == TOOL_TAR || ctx->tool == TOOL_CURL || ctx->tool == TOOL_MAGICK) &&
+                        !out->blocked))) {
         for (size_t i = 0; i < NL_TEMPLATE_COUNT; i++) {
             const CommandTemplate *tpl = &NL_TEMPLATES[i];
             SlotType missing[NL_MAX_REQUIRED];
             if (tpl->tool != ctx->tool || check_slots(ctx, tpl, missing) != 0) continue;
+            if (ctx->tool == TOOL_MAGICK && strcmp(tpl->id, "magick_resize") != 0 &&
+                strncmp(tpl->id, "magick_convert", 14) != 0)
+                break;   /* only resize / convert are safe guesses */
             if (verbose) fprintf(stderr, "no keyword matched: defaulting to %s\n", tpl->id);
             out->best = tpl;
             out->best_score = 0;

@@ -1,0 +1,71 @@
+# prompt	checks (run on generated fixtures, see tests/run_magick_exec.sh):
+#   hero.png 400x200 red->blue top to bottom; photo.jpg 300x200 red | blue;
+#   rotated.jpg = photo.jpg with EXIF orientation RightTop; sprite.png 64x64 red disc
+#   on white; logo.png 100x100 transparent with a centered 40x40 blue square;
+#   a.png b.png c.png 40x30; frames/f1-3.png; assets/x.png y.png; photos/p1-2.jpg 400x300
+# ---- resize ----
+resize hero.png to width 800 convert to webp quality 85	fmt=WEBP w=800 h=400
+resize hero.png to 100x100	fmt=PNG w=100 h=50
+resize hero.png to height 100	w=200 h=100
+resize hero.png to 50%	w=200 h=100
+scale hero.png to 120	w=120 h=60
+resize hero.png to exactly 100x100	w=100 h=100
+shrink hero.png to 1000x1000 only if larger	w=400 h=200
+upscale sprite.png 2x	w=128 h=128
+resize hero.png to 100x100 as small.png	w=100 h=50
+resize hero.png to half size into thumbs/	out=thumbs/hero.png w=200 h=100
+hero.png 80x80	w=80 h=40
+# ---- convert ----
+convert hero.png to webp	fmt=WEBP w=400 h=200
+convert hero.png to jpeg quality 90	fmt=JPEG w=400
+convert hero.png to hero.tiff	fmt=TIFF
+convert hero.png to hero.avif	fmt=AVIF w=400
+convert 'my photo.png' to webp	fmt=WEBP
+convert hero.png to out/	out=out/hero.png fmt=PNG
+hero.png to gif	fmt=GIF
+# ---- compress / metadata ----
+compress photo.jpg	fmt=JPEG w=300 noexif
+compress photo.jpg to webp	fmt=WEBP
+remove exif metadata from rotated.jpg	noexif w=200 h=300
+fix the orientation of rotated.jpg	w=200 h=300 px=100,10:red
+show all metadata of rotated.jpg	stdout=Orientation
+# ---- transparency ----
+make sprite.png transparent background	fmt=PNG alpha px=0,0:transparent px=32,32:red
+make the white background of sprite.png transparent	alpha px=63,63:transparent px=32,32:red
+remove the background of sprite.png with fuzz 15%	alpha px=0,0:transparent
+remove transparency from logo.png	opaque px=0,0:white px=50,50:blue
+put logo.png on a black background	opaque px=0,0:black px=50,50:blue
+# ---- geometry ----
+rotate photo.jpg 90 degrees	w=200 h=300 px=100,10:red
+rotate photo.jpg counterclockwise	w=200 h=300 px=100,10:blue
+rotate photo.jpg 180	w=300 h=200 px=10,100:blue
+mirror photo.jpg horizontally	px=10,100:blue px=290,100:red
+flip hero.png upside down	px=200,2:blue px=200,197:red
+crop photo.jpg to 100x50	w=100 h=50
+crop photo.jpg to 50%	w=150 h=100
+trim the whitespace around logo.png	w=40 h=40 px=20,20:blue
+pad photo.jpg to 400x400 with a black background	w=400 h=400 px=200,5:black px=60,200:red
+make a 64x64 thumbnail of photo.jpg	w=64 h=43
+add a 10px white border to photo.jpg	w=320 h=220 px=2,2:white px=20,100:red
+# ---- effects ----
+make photo.jpg black and white	gray w=300
+blur photo.jpg by 8	w=300 h=200
+sharpen photo.jpg	w=300 h=200
+# ---- several images ----
+combine a.png b.png c.png side by side into sheet.png	w=120 h=30 px=5,5:red px=115,5:blue
+stack a.png b.png vertically into column.png	w=40 h=60 px=5,5:red px=5,55:green
+make a gif from frames/*.png at 10 fps	fmt=GIF frames=3 w=50
+create an animated webp from a.png b.png	fmt=WEBP frames=2
+make a favicon from logo.png	fmt=ICO frames=5 w=256
+make a favicon from logo.png into public/	out=public/favicon.ico fmt=ICO frames=5
+# ---- batch ----
+convert all png files in assets/ to webp	files=assets/*.webp:2-2 files=assets/*.png:2-2 out=assets/x.webp fmt=WEBP
+resize all jpg files in photos/ to width 100 into small/	files=small/*.jpg:2-2 out=small/p1.jpg w=100 h=75
+resize all jpgs in photos/ to 50%	out=resized/p2.jpg w=200 h=150
+# ---- info ----
+what are the dimensions of photo.jpg	stdout=300x200
+how big is hero.png	stdout=400x200
+show info about photo.jpg	stdout=JPEG
+turn frames/*.png into a gif	fmt=GIF frames=3
+combine 'frames/*.png' side by side into strip.png	w=150 h=50
+make sprite.png transparent as sprite.webp	fmt=WEBP alpha

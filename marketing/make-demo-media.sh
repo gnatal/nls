@@ -130,5 +130,22 @@ fi
 # curl demo: a JSON body to POST (the demo only prints that command)
 printf '{"name": "Ada", "email": "ada@example.com"}\n' > "$OUT/data.json"
 
+# magick demo: a hero banner, a sprite on a white background and animation
+# frames, all drawn by ImageMagick itself (skipped if it isn't installed)
+if command -v magick >/dev/null 2>&1; then
+    magick -size 1600x900 gradient:'#1e3c72'-'#2a5298' "$OUT/hero.png"
+    magick -size 256x256 xc:white -fill '#e74c3c' -draw 'circle 128,128 128,40' "$OUT/sprite.png"
+    rm -rf "$OUT/frames" && mkdir -p "$OUT/frames"
+    i=0
+    for c in '#e74c3c' '#e67e22' '#f1c40f' '#2ecc71' '#3498db' '#9b59b6'; do
+        i=$((i + 1))
+        magick -size 160x160 xc:'#1e1e2e' -fill "$c" -draw "circle 80,80 80,$((20 + i * 8))" "$OUT/frames/f$i.png"
+    done
+    # reset what a previous recording left behind
+    rm -f "$OUT/hero.webp" "$OUT/sprite_transparent.png" "$OUT/animation.gif"
+else
+    echo "note: ImageMagick not installed; skipping the magick demo files (brew install imagemagick)"
+fi
+
 echo "demo files in $OUT:"
 ls -1 "$OUT"

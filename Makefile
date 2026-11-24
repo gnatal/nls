@@ -21,10 +21,14 @@ test: nls
 	sh tests/run_tar_exec.sh ./nls
 	sh tests/run_git_exec.sh ./nls
 	sh tests/run_curl_exec.sh ./nls
+	sh tests/run_magick_exec.sh ./nls
 	sh tests/run_ffmpeg_exec.sh ./nls
 
 test-ffmpeg: nls
 	sh tests/run_ffmpeg_exec.sh ./nls
+
+test-magick: nls
+	sh tests/run_magick_exec.sh ./nls
 
 install: nls
 	install -d "$(BINDIR)"
@@ -43,4 +47,4 @@ uninstall:
 clean:
 	rm -f nls
 
-.PHONY: test test-ffmpeg install uninstall clean
+.PHONY: test test-ffmpeg test-magick install uninstall clean

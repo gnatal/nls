@@ -400,3 +400,94 @@ curl	post data.json and '{"a":1}' to https://example.com	!ERR
 curl	delete https://example.com/x with body '{"a":1}'	!ERR
 curl	upload 'a;type=x.png' to https://example.com/u	!ERR
 curl	check status of https://example.com and save to out.txt	!ERR
+# --- magick ---
+magick	resize hero.png to width 800 convert to webp quality 85	magick hero.png -resize 800x -quality 85 hero.webp
+magick	make sprite.png transparent background	magick sprite.png -fuzz 5% -transparent white sprite_transparent.png
+magick	resize hero.png to 800x600	magick hero.png -resize 800x600 hero_resized.png
+magick	resize hero.png to height 400	magick hero.png -resize x400 hero_resized.png
+magick	resize hero.png to 50%	magick hero.png -resize 50% hero_resized.png
+magick	scale photo.jpg to 1200	magick photo.jpg -resize 1200 photo_resized.jpg
+magick	resize photo.jpg to exactly 800x600	magick photo.jpg -resize '800x600!' photo_resized.jpg
+magick	shrink photo.jpg to 1920x1080 only if larger	magick photo.jpg -resize '1920x1080>' photo_resized.jpg
+magick	upscale icon.png 2x	magick icon.png -resize 200% icon_resized.png
+magick	resize hero.png to 800x600 as small.png	magick hero.png -resize 800x600 small.png
+magick	resize hero.png to half size into thumbs/	mkdir -p thumbs/ && magick hero.png -resize 50% thumbs/hero.png
+magick	hero.png 800x600	magick hero.png -resize 800x600 hero_resized.png
+magick	convert hero.png to webp	magick hero.png hero.webp
+magick	convert hero.png to jpeg quality 90	magick hero.png -quality 90 hero.jpg
+magick	convert hero.png to hero.avif	magick hero.png hero.avif
+magick	convert hero.png to out/	mkdir -p out/ && magick hero.png out/hero.png
+magick	convert 'my photo.png' to webp	magick 'my photo.png' 'my photo.webp'
+magick	hero.png to webp	magick hero.png hero.webp
+magick	make hero.png a webp	magick hero.png hero.webp
+magick	compress photo.jpg	magick photo.jpg -strip -quality 80 photo_compressed.jpg
+magick	compress photo.jpg quality 70	magick photo.jpg -strip -quality 70 photo_compressed.jpg
+magick	compress photo.jpg to webp	magick photo.jpg -strip -quality 80 photo.webp
+magick	remove exif metadata from photo.jpg	magick photo.jpg -auto-orient -strip photo_clean.jpg
+magick	make the white background of sprite.png transparent	magick sprite.png -fuzz 5% -transparent white sprite_transparent.png
+magick	make the black background of logo.png transparent with 10% fuzz	magick logo.png -fuzz 10% -transparent black logo_transparent.png
+magick	remove the background of sprite.png with fuzz 15%	magick sprite.png -fuzz 15% -transparent white sprite_transparent.png
+magick	make '#00ff00' in sprite.png transparent	magick sprite.png -fuzz 5% -transparent '#00ff00' sprite_transparent.png
+magick	remove transparency from logo.png	magick logo.png -background white -alpha remove -alpha off logo_flat.png
+magick	put logo.png on a black background	magick logo.png -background black -alpha remove -alpha off logo_flat.png
+magick	replace transparency in logo.png with white	magick logo.png -background white -alpha remove -alpha off logo_flat.png
+magick	rotate photo.jpg 90 degrees	magick photo.jpg -rotate 90 photo_rotated.jpg
+magick	rotate photo.jpg 180	magick photo.jpg -rotate 180 photo_rotated.jpg
+magick	rotate photo.jpg counterclockwise	magick photo.jpg -rotate -90 photo_rotated.jpg
+magick	fix the orientation of photo.jpg	magick photo.jpg -auto-orient photo_oriented.jpg
+magick	mirror photo.jpg horizontally	magick photo.jpg -flop photo_mirrored.jpg
+magick	flip photo.jpg upside down	magick photo.jpg -flip photo_flipped.jpg
+magick	make photo.jpg black and white	magick photo.jpg -colorspace Gray photo_gray.jpg
+magick	convert photo.jpg to grayscale	magick photo.jpg -colorspace Gray photo_gray.jpg
+magick	crop photo.jpg to 800x600	magick photo.jpg -gravity center -crop 800x600+0+0 +repage photo_cropped.jpg
+magick	crop photo.jpg to 50%	magick photo.jpg -gravity center -crop 50%x50%+0+0 +repage photo_cropped.jpg
+magick	trim the whitespace around logo.png	magick logo.png -trim +repage logo_trimmed.png
+magick	pad photo.jpg to 1080x1080 with a black background	magick photo.jpg -gravity center -background black -extent 1080x1080 photo_padded.jpg
+magick	make a 200x200 thumbnail of photo.jpg	magick photo.jpg -thumbnail 200x200 photo_thumb.jpg
+magick	make a thumbnail of photo.jpg	magick photo.jpg -thumbnail 256x256 photo_thumb.jpg
+magick	blur photo.jpg by 8	magick photo.jpg -blur 0x8 photo_blurred.jpg
+magick	sharpen photo.jpg	magick photo.jpg -sharpen 0x1 photo_sharpened.jpg
+magick	add a 10px white border to photo.jpg	magick photo.jpg -bordercolor white -border 10 photo_border.jpg
+magick	combine a.png b.png c.png side by side into sprite.png	magick a.png b.png c.png +append sprite.png
+magick	stack a.png b.png vertically into column.png	magick a.png b.png -append column.png
+magick	make a gif from frames/*.png at 12 fps	magick -delay 8 -loop 0 'frames/*.png' animation.gif
+magick	make an animated gif from a.png b.png c.png	magick -delay 10 -loop 0 a.png b.png c.png animation.gif
+magick	create an animated webp from a.png b.png	magick -delay 10 -loop 0 a.png b.png animation.webp
+magick	make a favicon from logo.png	magick logo.png -background none -define icon:auto-resize=256,64,48,32,16 favicon.ico
+magick	make a favicon from logo.png into public/	mkdir -p public/ && magick logo.png -background none -define icon:auto-resize=256,64,48,32,16 public/favicon.ico
+magick	convert all png files in assets/ to webp	magick mogrify -format webp 'assets/*.png'
+magick	convert to webp all png files in assets/	magick mogrify -format webp 'assets/*.png'
+magick	convert all pngs to webp quality 80	magick mogrify -format webp -quality 80 '*.png'
+magick	convert all png in ~/pics/ to webp	magick mogrify -format webp ~/'pics/*.png'
+magick	resize all jpg files in photos/ to width 1200 into small/	mkdir -p small/ && magick mogrify -path small/ -resize 1200x 'photos/*.jpg'
+magick	resize all jpgs to 50%	mkdir -p resized && magick mogrify -path resized -resize 50% '*.jpg'
+magick	what are the dimensions of photo.jpg	magick identify -format '%wx%h\n' photo.jpg
+magick	how big is photo.jpg	magick identify -format '%wx%h\n' photo.jpg
+magick	show info about photo.jpg	magick identify photo.jpg
+magick	show all metadata of photo.jpg	magick identify -verbose photo.jpg
+magick	resize hero.png	!ERR
+magick	hero.png	!ERR
+magick	rotate photo.jpg 90 degrees quality 80	!ERR
+magick	make sprite.png transparent as sprite.jpg	!ERR
+magick	resize photo.jpg to 800x600 5	!ERR
+magick	crop photo.jpg to 800	!ERR
+magick	pad photo.jpg to 50%	!ERR
+magick	convert all png files to png	!ERR
+magick	resize a.png b.png to 50%	!ERR
+magick	make a gif from a.png	!ERR
+magick	resize -rf.png to 50%	!ERR
+magick	convert @list.txt to webp	!ERR
+magick	convert png:hero.png to webp	!ERR
+magick	convert hero.png to webp quality 150	!ERR
+magick	rotate photo.jpg 400 degrees	!ERR
+magick	rotate photo.jpg exactly	!ERR
+magick	resize photo.jpg exactly 800x600 only if larger	!ERR
+magick	resize photos/ to 50%	!ERR
+magick	resize frames/*.png to 50%	!ERR
+magick	resize hero.png to 800x600 and 400x300	!ERR
+magick	blur photo.jpg with 'hello'	!ERR
+magick	resize all jpgs to 50% into out.jpg	!ERR
+magick	make a gif from a.png b.png at 500 fps	!ERR
+magick	turn frames/*.png into a gif	magick -delay 10 -loop 0 'frames/*.png' animation.gif
+magick	combine 'icons/*.png' side by side into sheet.png	magick 'icons/*.png' +append sheet.png
+magick	hero.png to gif	magick hero.png hero.gif

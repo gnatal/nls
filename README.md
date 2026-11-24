@@ -1,7 +1,7 @@
 # nls — natural language shell
 
 `nls` turns plain-English requests into exact `ffmpeg`, `jq`, `grep`,
-`find`, `tar`, `git` and `curl` commands.
+`find`, `tar`, `git`, `curl` and ImageMagick (`magick`) commands.
 It works fully offline: no LLM, no network, no runtime dependencies. It is
 written in C11 using only the standard library, and every command template is
 compiled into the binary.
@@ -14,7 +14,8 @@ $ nls jq "get .name from users.json where .age > 30"
 jq 'map(select(.age > 30) | .name)' users.json
 ```
 
-Supported tools: **ffmpeg**, **jq**, **grep**, **find**, **tar**, **git** and **curl**
+Supported tools: **ffmpeg**, **jq**, **grep**, **find**, **tar**, **git**, **curl** and
+**magick** (also reachable as `nls convert …`)
 (see `natural_language_shell_architecture_plan.md`).
 
 ## Build
@@ -29,7 +30,10 @@ make test     # all tests (each execution suite skips if its tool is missing):
               #  - tar: create/extract/list in a temp tree  tests/tar_exec_cases.tsv
               #  - ffmpeg: run on generated media,
               #    verified with ffprobe          tests/ffmpeg_exec_cases.tsv
+              #  - magick: run on generated images,
+              #    verified with magick identify  tests/magick_exec_cases.tsv
 make test-ffmpeg  # only the ffmpeg execution tests (~10 s)
+make test-magick  # only the magick execution tests
 make install  # installs to ~/.local/bin/nls (no sudo needed)
 ```
 
@@ -47,7 +51,11 @@ already taken by the standard Unix line-numbering tool.
 The ffmpeg tests don't need any media in the repo. Each run generates 5-second
 320x180 clips with ffmpeg's built-in test pattern and tone in a temp folder,
 runs every command on them, and checks the output's duration, resolution,
-codecs, audio/video streams, fps and frame count with `ffprobe`.
+codecs, audio/video streams, fps and frame count with `ffprobe`. The magick
+tests work the same way: they draw small images with `magick` itself (a
+gradient, a red/blue split, a sprite on white, a logo on transparency, one
+photo tagged with an EXIF rotation) and check size, format, frame count,
+transparency, colour space, EXIF and individual pixel colours.
 
 ## Usage
 
@@ -112,6 +120,17 @@ Quote the whole prompt so your shell doesn't interpret `>`, `'` or `*`.
 | `curl "get json from api.github.com/users/octocat"` | `curl -sS -H 'Accept: application/json' 'https://api.github.com/users/octocat' \| jq .` |
 | `curl "get https://self.local ignoring ssl errors, retry 3 times, timeout 10s"` | `curl -sS -k --retry 3 --max-time 10 'https://self.local'` |
 | `curl "how long does https://example.com take"` | `curl -sS -o /dev/null -w 'dns: %{time_namelookup}s\n…total: %{time_total}s\n' 'https://example.com'` |
+| `magick "resize hero.png to width 800 convert to webp quality 85"` | `magick hero.png -resize 800x -quality 85 hero.webp` |
+| `magick "make sprite.png transparent background"` | `magick sprite.png -fuzz 5% -transparent white sprite_transparent.png` |
+| `magick "shrink photo.jpg to 1920x1080 only if larger"` | `magick photo.jpg -resize '1920x1080>' photo_resized.jpg` |
+| `magick "remove exif metadata from photo.jpg"` | `magick photo.jpg -auto-orient -strip photo_clean.jpg` |
+| `magick "mirror photo.jpg horizontally"` | `magick photo.jpg -flop photo_mirrored.jpg` |
+| `magick "pad photo.jpg to 1080x1080 with a black background"` | `magick photo.jpg -gravity center -background black -extent 1080x1080 photo_padded.jpg` |
+| `magick "combine a.png b.png c.png side by side into sprite.png"` | `magick a.png b.png c.png +append sprite.png` |
+| `magick "make a gif from frames/*.png at 12 fps"` | `magick -delay 8 -loop 0 'frames/*.png' animation.gif` |
+| `magick "make a favicon from logo.png"` | `magick logo.png -background none -define icon:auto-resize=256,64,48,32,16 favicon.ico` |
+| `magick "convert all png files in assets/ to webp"` | `magick mogrify -format webp 'assets/*.png'` |
+| `magick "resize all jpg files in photos/ to width 1200 into small/"` | `mkdir -p small/ && magick mogrify -path small/ -resize 1200x 'photos/*.jpg'` |
 
 Run `nls --list` to see all templates.
 
@@ -179,6 +198,16 @@ Run `nls --list` to see all templates.
      `token $TOKEN` / `bearer GITHUB_TOKEN` become `-H`; `follow redirects`,
      `ignore ssl errors`, `retry 3`, `timeout 10s`, `as user alice` become
      `-L`, `-k`, `--retry`, `--max-time`, `-u`.
+   - For magick, sizes become a geometry (`800x600`, `width 800` → `800x`,
+     `height 400` → `x400`, `50%`, `2x` → `200%`, `half size` → `50%`;
+     `exactly` adds `!`, `only if larger` adds `>`), `quality 85` is the
+     quality, and `fuzz 10%` / `90 degrees` / `blur by 8` / `10px border` is
+     the operation's amount. Colours are names or `#hex`. A path after
+     `to`/`as`/`into` (once there is an input) is the output; a folder there
+     keeps the name and gets a `mkdir -p`. `all png files in assets/` is a
+     batch (`mogrify` on `'assets/*.png'`), and the output name only gets a
+     suffix (`_resized`) when it would otherwise overwrite the input
+     (`hero.png` → `hero.webp`, but → `hero_resized.png`).
 3. **Expander** (`src/expander.c`): fills the winning template.
    - Placeholders: `{TYPE:i}`, `{TYPE:i|default}`, `{OUT_FILE|ext|suffix}` and
      `<< optional >>` groups.
@@ -220,6 +249,16 @@ Run `nls --list` to see all templates.
   your shell doesn't expand `$TOKEN` first.) A body on a GET, two bodies, two
   URLs, a stray number or a saved response on a status check is refused
   rather than dropped.
+- magick never overwrites an input: single-image commands write a new file,
+  `mogrify` batches only change the format (originals stay) or write into
+  another folder (`-path resized`). Globs are passed quoted so magick expands
+  them itself. It refuses file names magick would read as something else:
+  a leading `-` (an option), `@list.txt` (a list of files) and `png:x` style
+  format prefixes. It also refuses requests it can't fully express (a quality
+  on a rotate, `exactly` with `only shrink`, a folder for a single-image
+  command, transparency into a `.jpg`, a stray number) instead of dropping
+  them. Commands target ImageMagick 7 (`magick`); on 6 use `convert` /
+  `mogrify` without the `magick` prefix.
 - JSON paths may only contain `[A-Za-z0-9_.[]?]`. A prompt like
   `get .a;rm in data.json` is rejected.
 

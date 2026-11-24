@@ -9,22 +9,23 @@ numbers change as templates are added.
 | `README.md` | Positioning, messaging, fact sheet (this file) |
 | `launch-posts.md` | Ready-to-edit posts: Show HN, Reddit, X/Bluesky thread, LinkedIn |
 | `demo.tape` | [VHS](https://github.com/charmbracelet/vhs) script that records the terminal demo GIF |
-| `make-demo-media.sh` | Generates royalty-free demo files (`talk.mp4`, `demo.mp4`, `users.json`, a small `src/` tree, `app.log`, plus old logs, big files, `node_modules/` and `.DS_Store` clutter for the find demo, `.git/`, `node_modules/` and a `release-1.0.tgz` for the tar demo, a `project/` git repo with two authors and a feature branch for the git demo, and a `data.json` body for the curl demo) |
+| `make-demo-media.sh` | Generates royalty-free demo files (`talk.mp4`, `demo.mp4`, `users.json`, a small `src/` tree, `app.log`, plus old logs, big files, `node_modules/` and `.DS_Store` clutter for the find demo, `.git/`, `node_modules/` and a `release-1.0.tgz` for the tar demo, a `project/` git repo with two authors and a feature branch for the git demo, and a `data.json` body for the curl demo, and `hero.png`, `sprite.png` and `frames/` drawn with ImageMagick for the magick demo) |
 
 ---
 
 ## One-liner
 
-> **Plain English in, the exact ffmpeg, jq, grep, find, tar, git or curl command out. Offline, instant, no AI.**
+> **Plain English in, the exact ffmpeg, jq, grep, find, tar, git, curl or ImageMagick command out. Offline, instant, no AI.**
 
 Alternatives:
 - "Stop googling ffmpeg flags."
 - "`nls` compiles English into shell commands."
-- "The ffmpeg/jq/grep/find/tar/git/curl cheat sheet you can talk to."
+- "The ffmpeg/jq/grep/find/tar/git/curl/ImageMagick cheat sheet you can talk to."
 - "Never type `-prune -o` again."
 - "Stop looking up which tar flag is xz."
 - "Undo that commit without googling `reset --soft` vs `--hard`."
 - "POST that JSON without looking up `-H`, `-d` and `@`."
+- "Resize, convert and compress images without remembering `-resize 800x`."
 - "Search your code in plain English, without an AI reading it."
 
 ## Elevator pitch (30 seconds)
@@ -36,14 +37,17 @@ people copy from Stack Overflow every single time, `tar` is the classic
 "which letters, in which order?" command, and every developer has a git
 command they're scared to type ("was it `reset --soft` or `--hard`?").
 And testing an API with curl means remembering `-X POST`, the JSON header,
-`-d @file` and how to print just the status code. `nls` lets you type what
+`-d @file` and how to print just the status code. ImageMagick hides its best
+tricks in geometry syntax (`800x`, `'1920x1080>'`, `'800x600!'`) and swaps
+the names you'd expect (`-flip` is upside down, `-flop` is a mirror). `nls` lets you type what
 you want, like
 `nls ffmpeg "extract the first 10 seconds of talk.mp4 into intro.mp4"`,
 `nls grep "which python files contain TODO, ignoring case"`,
 `nls find "files larger than 5MB ignoring node_modules"`,
 `nls tar "extract release.tgz into dist/ without the top-level folder"`,
-`nls git "undo last 2 commits keep changes staged"` or
-`nls curl "post data.json to https://api.example.com/users"`. You get back
+`nls git "undo last 2 commits keep changes staged"`,
+`nls curl "post data.json to https://api.example.com/users"` or
+`nls magick "resize hero.png to width 800 convert to webp quality 85"`. You get back
 the exact command, ready to run.
 
 It isn't a chatbot. There's no API key, no network, and no model. (curl's
@@ -300,6 +304,63 @@ The curl examples show the traps people fall into by hand:
 - **Nothing gets dropped**: a body on a GET, two URLs or a stray number is
   refused, not silently ignored.
 
+ImageMagick, run in the demo folder (`make-demo-media.sh` draws the images):
+
+```console
+$ nls -x -y magick "resize hero.png to width 800 convert to webp quality 85"
+→ magick hero.png -resize 800x -quality 85 hero.webp
+
+$ nls -x -y magick "what are the dimensions of hero.webp"
+→ magick identify -format '%wx%h\n' hero.webp
+800x450
+
+$ nls -x -y magick "make sprite.png transparent background"
+→ magick sprite.png -fuzz 5% -transparent white sprite_transparent.png
+
+$ nls -x -y magick "make a gif from frames/*.png at 12 fps"
+→ magick -delay 8 -loop 0 'frames/*.png' animation.gif
+
+$ nls magick "shrink hero.png to 1920x1080 only if larger"
+magick hero.png -resize '1920x1080>' hero_resized.png
+
+$ nls magick "mirror hero.png horizontally"
+magick hero.png -flop hero_mirrored.png
+
+$ nls magick "make a favicon from sprite.png"
+magick sprite.png -background none -define icon:auto-resize=256,64,48,32,16 favicon.ico
+
+$ nls magick "convert all png files in frames/ to webp"
+magick mogrify -format webp 'frames/*.png'
+
+$ nls magick "make sprite.png transparent as sprite.jpg"
+nls: jpg can't store transparency; use png or webp (magick_transparent)
+
+$ nls magick "convert @list.txt to webp"
+nls: refusing '@list.txt': magick reads @file as a list of file names (magick_convert)
+```
+
+The ImageMagick examples show the traps people fall into by hand:
+- **Geometry syntax.** "width 800" is `800x` (keep the aspect ratio),
+  "exactly" adds `!`, and "only if larger" adds `>`. Both need quotes: an
+  unquoted `>` is a shell redirect, so magick errors out and leaves an empty
+  output file behind.
+- **`-flip` vs `-flop`.** `-flip` turns the image upside down; a left-right
+  mirror is `-flop`. "Mirror horizontally" gets the right one.
+- **Never overwrite the original.** `mogrify` edits files in place, so batch
+  resizes go to another folder (`-path resized`), and format conversions
+  leave the originals next to the new files. Single images get a new name,
+  with a suffix (`_resized`) only when the format doesn't change.
+- **Frame delay is in 1/100 s.** "12 fps" becomes `-delay 8`, not `-delay 12`.
+- **Globs are quoted** so magick expands `frames/*.png` itself (zsh would
+  otherwise stop with "no matches found" when nothing matches).
+- **Format traps are refused.** Transparency saved to a `.jpg` comes out with
+  a solid background, so `nls` refuses that instead. `@list.txt` and `png:x`
+  are magick syntax for "read a list of files" and "force a format", so file
+  names like that are refused too.
+- **Stripping EXIF keeps photos upright.** "remove exif metadata" runs
+  `-auto-orient` first; plain `-strip` would drop the rotation tag and leave
+  phone photos sideways.
+
 ## Who it's for
 
 | Audience | Pain | Message |
@@ -308,10 +369,11 @@ The curl examples show the traps people fall into by hand:
 | Anyone searching code or logs | `-l` vs `-L`, `--include` globs, context flags | "Ask for 'python files that don't mention TODO' and get the right grep." |
 | Anyone cleaning up disks or repos | `-prune` syntax, `+`/`-` signs, fear of `-delete` | "Find what's eating your disk, and delete it without the scary part." |
 | Anyone shipping releases or making backups | tar flag letters and order, excludes, `--strip-components` | "Say what goes in the archive; get the tar line right the first time." |
+| Web developers and designers | Resize/convert/compress assets, favicons, sprites, `-flip` vs `-flop` | "Get web-ready images in one sentence, without overwriting the originals." |
 | Backend developers testing APIs | `-X`/`-H`/`-d @file`, status-only output, auth headers | "Say what to send where; get the curl line right the first time." |
 | Every developer using git | Fear of `reset`, `-S` vs `--grep`, `A..B` order, recovering deleted files | "Say what you want to undo; get the safe git command." |
 | People who distrust AI shell tools | Hallucinated flags, data sent to the cloud, API cost | "Deterministic. Offline. Nothing leaves your machine." |
-| C / systems programmers | Bloat | "217 KB, links only the system C library, about 5,700 lines of C11." |
+| C / systems programmers | Bloat | "250 KB, links only the system C library, about 6,700 lines of C11." |
 | Content creators, podcasters | Need cuts, GIFs, audio extraction | "Cut, compress, GIF, extract audio in one sentence." |
 
 ## Differentiators (vs. AI command generators)
@@ -323,7 +385,7 @@ The curl examples show the traps people fall into by hand:
 | Latency | ~2 ms | Typically seconds |
 | Your file names and data | Never leave the machine | Sent to a provider (unless self-hosted) |
 | Invents flags that don't exist | Can't: every command comes from a tested template | Possible |
-| Coverage | Limited to its templates (ffmpeg, jq, grep, find, tar, git, curl for now) | Anything |
+| Coverage | Limited to its templates (ffmpeg, jq, grep, find, tar, git, curl, ImageMagick for now) | Anything |
 
 Be honest about the last row. "It does fewer things, but it gets them right"
 is a stronger pitch than pretending it does everything.
@@ -332,13 +394,13 @@ is a stronger pitch than pretending it does everything.
 
 | Claim | Value | How to re-check |
 |---|---|---|
-| Binary size | 217 KB | `make && ls -l nls` |
+| Binary size | 250 KB | `make && ls -l nls` |
 | Dependencies | System C library only | `otool -L nls` (macOS) / `ldd nls` (Linux) |
-| Source size | ~5,700 lines of C11 | `wc -l src/*` |
+| Source size | ~6,700 lines of C11 | `wc -l src/*` |
 | Speed | ~1.7 ms per call, including process start | `time` a loop of 1,000 runs |
-| Templates | 176 (30 ffmpeg, 47 jq, 9 grep, 7 find, 3 tar, 67 git, 13 curl) | `nls --list \| grep -c '^[a-z]*_'` |
-| Tests | 642 (396 command-text, 59 run with real jq, 16 run with real grep, 29 run with real find on a generated tree, 19 run with real tar creating, listing and extracting archives, 54 run with real git in a throwaway repo, 31 run with real curl against a local test server, 38 run with real ffmpeg + ffprobe) | `make test` |
-| Safety | Prints only, unless `-x`; `-x` asks first; file names and strings are shell-quoted; jq strings go through `--arg`; grep patterns go through `-e`; find refuses unfiltered deletes and anything it can't fully express; tar refuses mismatched compression, non-tar names and stray values, and a bare archive name only lists; git refuses anything it can't fully use, stray numbers, unquoted shell syntax and invalid branch names, and ties go to the safe variant (`reset --soft`, `branch -d`, `clean -n`); curl only accepts http(s) URLs from a strict allowlist, always single-quotes them, keeps `$TOKEN` secrets as variables, and refuses bodies on GETs, two URLs and stray values | `README.md` → Safety |
+| Templates | 206 (30 ffmpeg, 47 jq, 9 grep, 7 find, 3 tar, 67 git, 13 curl, 30 magick) | `nls --list \| grep -c '^[a-z]*_'` |
+| Tests | 789 (486 command-text, 59 run with real jq, 16 run with real grep, 29 run with real find on a generated tree, 19 run with real tar creating, listing and extracting archives, 54 run with real git in a throwaway repo, 31 run with real curl against a local test server, 57 run with real ImageMagick on generated images, checking size, format, transparency, EXIF and pixel colours, 38 run with real ffmpeg + ffprobe) | `make test` |
+| Safety | Prints only, unless `-x`; `-x` asks first; file names and strings are shell-quoted; jq strings go through `--arg`; grep patterns go through `-e`; find refuses unfiltered deletes and anything it can't fully express; tar refuses mismatched compression, non-tar names and stray values, and a bare archive name only lists; git refuses anything it can't fully use, stray numbers, unquoted shell syntax and invalid branch names, and ties go to the safe variant (`reset --soft`, `branch -d`, `clean -n`); curl only accepts http(s) URLs from a strict allowlist, always single-quotes them, keeps `$TOKEN` secrets as variables, and refuses bodies on GETs, two URLs and stray values; magick never overwrites an input, refuses `-x`/`@list`/`png:x` file names, transparency into JPEG and anything it can't fully express | `README.md` → Safety |
 
 Wording rules:
 - Say "about 2 ms", not "sub-millisecond". The 1.7 ms includes starting the
@@ -375,6 +437,14 @@ Wording rules:
 - Single-quote curl prompts that contain `$TOKEN`, or the shell expands it
   before `nls` sees it (and the secret ends up in the command). Show the
   single quotes in every demo.
+- ImageMagick: tested with ImageMagick 7.1 on macOS. Commands use the IM7
+  `magick` entry point; on ImageMagick 6 only `convert`/`mogrify` exist, so
+  say "ImageMagick 7" if asked. AVIF and HEIC need IM built with libheif
+  (Homebrew's is).
+- magick covers common image chores (resize, convert, compress, metadata,
+  transparency, rotate/flip, crop/pad/trim, thumbnails, borders, strips,
+  GIFs, favicons, folder batches), not all of ImageMagick. No text,
+  watermarks or compositing yet.
 - Never run the git demo in a real repo you care about: `make-demo-media.sh`
   builds a throwaway one in `marketing/demo/project/`.
 
@@ -392,5 +462,5 @@ Wording rules:
       input, jq AND conditions, find "modified after 2026-01-01" and
       "run X on each file", tar creating the destination folder and
       appending to archives, git "discard all local changes" and remote
-      management, curl cookies and retries on specific status codes, openssl
-      and ImageMagick next). Launch threads always ask.
+      management, curl cookies and retries on specific status codes, magick
+      watermarks and text, openssl next). Launch threads always ask.
