@@ -973,6 +973,94 @@ const CommandTemplate NL_TEMPLATES[] = {
          "orphaned", "deleted", "branch"), REQ(0),
       "git reflog -n {NUM:0|30}", SHAPE_ANY },
 
+    /* =============================== curl ===============================
+     * The lexer finds the URL (http(s)://..., or a bare host such as
+     * localhost:3000/x or api.example.com/users), headers and bearer tokens
+     * (HEADER), a body (FILE, or inline JSON / name=value as QUOTED_STR),
+     * where to save the response (DEST), and modifiers: follow redirects /
+     * insecure / compressed (flags), "retry 3" (NUM), "timeout 10s" (TIME),
+     * "as user alice" (AUTHOR). Every slot given must be used, so e.g. a
+     * body on a GET is refused rather than dropped. Builders (expander.c):
+     * {URL} {OPTS} {HEADERS} {BODY} {UPLOAD} {OUTPUT}. The plain GET comes
+     * first: it is the default when no verb is recognized. */
+#define U  SLOT_URL
+#define CURL_SEND "{OPTS}{HEADERS}{BODY} {URL}{OUTPUT}"
+
+    { TOOL_CURL, "curl_get", "Send a GET request and print the response",
+      "get https://api.example.com/users",
+      KW("get", "fetch", "call", "request", "hit", "query", "read", "curl", "load", "open",
+         "show", "print", "see", "view", "body", "contents", "content"), REQ(U),
+      "curl -sS{OPTS}{HEADERS} {URL}{OUTPUT}", SHAPE_ANY },
+
+    { TOOL_CURL, "curl_get_json", "GET a JSON API and pretty-print the response with jq",
+      "get json from https://api.example.com/users",
+      KW("json", "pretty", "prettify", "format", "formatted", "jq", "parse", "beautify",
+         "readable", "indent", "get", "fetch"), REQ(U),
+      "curl -sS{OPTS} -H 'Accept: application/json'{HEADERS} {URL} | jq .", SHAPE_ANY },
+
+    { TOOL_CURL, "curl_post", "POST a file, inline JSON or form fields",
+      "post data.json to https://api.example.com/users",
+      KW("post", "send", "submit", "create", "posting", "sending"), REQ(U),
+      "curl -sS{OPTS} -X POST" CURL_SEND, SHAPE_ANY },
+
+    { TOOL_CURL, "curl_put", "PUT a file, inline JSON or form fields (replace a resource)",
+      "put config.json to https://api.example.com/settings",
+      KW("put", "update", "replace", "overwrite", "upsert"), REQ(U),
+      "curl -sS{OPTS} -X PUT" CURL_SEND, SHAPE_ANY },
+
+    { TOOL_CURL, "curl_patch", "PATCH a resource with a file, inline JSON or form fields",
+      "patch '{\"active\":false}' to https://api.example.com/users/42",
+      KW("patch", "modify", "partial", "partially", "change", "edit"), REQ(U),
+      "curl -sS{OPTS} -X PATCH" CURL_SEND, SHAPE_ANY },
+
+    { TOOL_CURL, "curl_delete", "Send a DELETE request",
+      "delete https://api.example.com/users/42 with token $TOKEN",
+      KW("delete", "remove", "destroy", "del", "deleting", "erase"), REQ(U),
+      "curl -sS{OPTS} -X DELETE{HEADERS} {URL}{OUTPUT}", SHAPE_ANY },
+
+    { TOOL_CURL, "curl_status", "Print just the HTTP status code (after redirects)",
+      "check response status of https://example.com",
+      KW("status", "code", "check", "response", "http", "up", "alive", "online", "ping",
+         "health", "healthy", "returns", "return", "reachable", "down", "working"), REQ(U),
+      "curl -sSIL{OPTS|L}{HEADERS} -o /dev/null -w '%{http_code}\\n' {URL}", SHAPE_ANY },
+
+    { TOOL_CURL, "curl_headers", "Show the response headers of a GET request",
+      "show response headers of https://example.com",
+      KW("headers", "header", "response", "show", "print", "see", "view", "list", "inspect"),
+      REQ(U),
+      "curl -sS{OPTS}{HEADERS} -D - -o /dev/null {URL}", SHAPE_ANY },
+
+    { TOOL_CURL, "curl_download", "Download a file (follows redirects, fails on HTTP errors)",
+      "download https://example.com/file.zip as out.zip",
+      KW("download", "save", "grab", "downloading", "store", "pull", "wget", "write"), REQ(U),
+      "curl -fL{OPTS|L}{HEADERS} {URL}{OUTPUT|O}", SHAPE_ANY },
+
+    { TOOL_CURL, "curl_resume", "Resume an interrupted download",
+      "resume download of https://example.com/big.iso",
+      KW("resume", "continue", "resuming", "partial", "interrupted", "unfinished", "restart",
+         "download", "finish"), REQ(U),
+      "curl -fL{OPTS|L} -C -{HEADERS} {URL}{OUTPUT|O}", SHAPE_ANY },
+
+    { TOOL_CURL, "curl_upload", "Upload files as a multipart form (-F file=@...)",
+      "upload photo.png to https://example.com/upload",
+      KW("upload", "uploading", "attach", "multipart", "form", "attachment"), REQ(U, F),
+      "curl -sS{OPTS}{HEADERS}{UPLOAD} {URL}{OUTPUT}", SHAPE_ANY },
+
+    { TOOL_CURL, "curl_timing", "Break down where a request spends its time (DNS, TLS, first byte)",
+      "how long does https://example.com take",
+      KW("time", "timing", "timings", "latency", "slow", "fast", "measure", "long", "speed",
+         "benchmark", "take", "takes", "duration", "ttfb", "breakdown", "performance", "quick"),
+      REQ(U),
+      "curl -sS{OPTS}{HEADERS} -o /dev/null -w 'dns:        %{time_namelookup}s\\n"
+      "connect:    %{time_connect}s\\ntls:        %{time_appconnect}s\\n"
+      "first byte: %{time_starttransfer}s\\ntotal:      %{time_total}s\\n' {URL}", SHAPE_ANY },
+
+    { TOOL_CURL, "curl_verbose", "Debug a request: show the TLS handshake and all headers (-v)",
+      "debug https://example.com",
+      KW("debug", "verbose", "verbosely", "trace", "troubleshoot", "handshake", "details",
+         "detailed", "diagnose", "everything"), REQ(U),
+      "curl -v{OPTS}{HEADERS} -o /dev/null {URL}", SHAPE_ANY },
+
 };
 
 const size_t NL_TEMPLATE_COUNT = sizeof NL_TEMPLATES / sizeof NL_TEMPLATES[0];

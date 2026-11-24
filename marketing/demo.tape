@@ -1,7 +1,7 @@
 # Terminal demo GIF, recorded with VHS: https://github.com/charmbracelet/vhs
 #   brew install vhs
 #   make                                 # builds ./nls; the tape uses this build
-#   sh marketing/make-demo-media.sh      # creates marketing/demo/ (talk.mp4, users.json, src/, app.log, logs/, assets/, node_modules/, release-1.0.tgz, dist/, project/ git repo)
+#   sh marketing/make-demo-media.sh      # creates marketing/demo/ (talk.mp4, users.json, src/, app.log, logs/, assets/, node_modules/, release-1.0.tgz, dist/, project/ git repo, data.json)
 #   vhs marketing/demo.tape              # writes marketing/nls-demo.gif
 # Run from the repo root.
 
@@ -119,6 +119,27 @@ Enter
 Sleep 2.5s
 
 Type `nls git "squash last 3 commits with message 'login flow'"`
+Sleep 400ms
+Enter
+Sleep 3.5s
+
+# 8. curl: the JSON POST incantation, a live status check, tokens kept as variables
+Hide
+Type "cd .. && clear"
+Enter
+Show
+
+Type `nls curl "post data.json to https://api.example.com/users"`
+Sleep 400ms
+Enter
+Sleep 3s
+
+Type `nls -x -y curl "check response status of https://example.com"`
+Sleep 400ms
+Enter
+Sleep 3s
+
+Type `nls curl 'delete https://api.example.com/users/42 with token $TOKEN'`
 Sleep 400ms
 Enter
 Sleep 3.5s

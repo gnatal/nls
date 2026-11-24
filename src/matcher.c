@@ -87,6 +87,14 @@ static int slots_used(const ParseContext *ctx, const CommandTemplate *tpl) {
             if (nl_find_slot(ctx, SLOT_REV, 0)) { used++; memcpy(seen[nseen++], "REV:0", 6); }
         }
     }
+    /* curl builders consume slots without a {TYPE:i} placeholder */
+    if (ctx->tool == TOOL_CURL) {
+        const char *t = tpl->flag_template;
+        bool body = strstr(t, "{BODY}") || strstr(t, "{UPLOAD}");
+        if (nl_find_slot(ctx, SLOT_DEST, 0) && strstr(t, "{OUTPUT")) used++;
+        if (nl_find_slot(ctx, SLOT_FILE, 0) && (body || strstr(t, "{OUTPUT|O}"))) used++;
+        if (nl_find_slot(ctx, SLOT_QUOTED_STR, 0) && strstr(t, "{BODY}")) used++;
+    }
     for (const char *p = tpl->flag_template; (p = strchr(p, '{')) != NULL; p++) {
         const char *colon = p + 1;
         while ((*colon >= 'A' && *colon <= 'Z') || *colon == '_') colon++;
@@ -213,8 +221,9 @@ void nl_match(const ParseContext *ctx, MatchResult *out, bool verbose) {
      * Either way: the tool's first template that can run. */
     /* tar: "src/ into backup.tar.gz" creates, a bare archive name lists;
      * but never fall back when a verb was recognized ("extract src/"). */
+    /* curl: a bare URL means a plain GET. */
     if (!out->best && (ctx->tool == TOOL_GREP || ctx->tool == TOOL_FIND ||
-                       (ctx->tool == TOOL_TAR && !out->blocked))) {
+                       ((ctx->tool == TOOL_TAR || ctx->tool == TOOL_CURL) && !out->blocked))) {
         for (size_t i = 0; i < NL_TEMPLATE_COUNT; i++) {
             const CommandTemplate *tpl = &NL_TEMPLATES[i];
             SlotType missing[NL_MAX_REQUIRED];

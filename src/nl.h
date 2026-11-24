@@ -25,6 +25,7 @@ typedef enum {
     TOOL_FIND,
     TOOL_TAR,
     TOOL_GIT,
+    TOOL_CURL,
     TOOL_COUNT
 } ToolId;
 
@@ -53,8 +54,12 @@ typedef enum {
     SLOT_REV,        /* git: a revision to work from: "from main", "3 commits ago"
                         -> HEAD~3, a1b2c3d, HEAD~2                                 */
     SLOT_BRANCH,     /* git: a branch / tag acted on: "branch feature-x", "to main" */
-    SLOT_AUTHOR,     /* git: "by alice", "by me" -> "me"                            */
-    /* git TIME is a whole option: "--since='7 days ago'", "--until='2024-01-31'" */
+    SLOT_AUTHOR,     /* git: "by alice", "by me" -> "me"; curl: "as user alice" (-u) */
+    SLOT_URL,        /* curl: http(s)://... from a strict allowlist (single-quoted)  */
+    SLOT_HEADER,     /* curl: 'X-Api-Key: abc', "token $TOKEN" -> Authorization     */
+    /* git TIME is a whole option: "--since='7 days ago'", "--until='2024-01-31'";
+       curl TIME is a timeout in whole seconds, curl NUM a retry count;
+       curl FILE is a request body / upload, DEST where to save the response  */
     SLOT_TYPE_COUNT
 } SlotType;
 
@@ -100,11 +105,12 @@ typedef struct {
     uint8_t cond_paths;                      /* jq: paths used as conditions/keys */
     char input_shape;                        /* jq: '[' or '{' if FILE:0 was peeked, else 0 */
     bool wants_count;                        /* jq: "how many", "count", "number of" */
-    char flags[8];                           /* grep: i w v F; find: i; tar: q (quiet) */
+    char flags[8];                           /* grep: i w v F; find: i; tar: q (quiet);
+                                                curl: L (follow) k (insecure) c (compressed) */
     char find_kind;                          /* find: 'f', 'd', 'l', or 'a' (any type) */
     bool find_kind_set;                      /* find: the user named a file type     */
     char find_depth[8];                      /* find: -maxdepth value, "" if none    */
-    const char *stray;                       /* find/tar/git: a number nls couldn't place */
+    const char *stray;                       /* find/tar/git/curl: a number nls couldn't place */
     bool git_last;                           /* git: "the last commit" was mentioned  */
     bool overflow;                           /* too many tokens/slots or arena full */
 } ParseContext;
@@ -147,5 +153,7 @@ void nl_match(const ParseContext *ctx, MatchResult *out, bool verbose);
 bool nl_expand(const ParseContext *ctx, const CommandTemplate *tpl,
                char *out, size_t out_size, char *err, size_t err_size);
 bool nl_shell_quote(const char *in, char *out, size_t out_size);
+/* curl: does `s` start with http:// or https:// and stay inside the URL allowlist? */
+bool nl_url_ok(const char *s);
 
 #endif /* NL_H */

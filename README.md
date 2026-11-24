@@ -1,7 +1,7 @@
 # nls — natural language shell
 
 `nls` turns plain-English requests into exact `ffmpeg`, `jq`, `grep`,
-`find`, `tar` and `git` commands.
+`find`, `tar`, `git` and `curl` commands.
 It works fully offline: no LLM, no network, no runtime dependencies. It is
 written in C11 using only the standard library, and every command template is
 compiled into the binary.
@@ -14,7 +14,7 @@ $ nls jq "get .name from users.json where .age > 30"
 jq 'map(select(.age > 30) | .name)' users.json
 ```
 
-Supported tools: **ffmpeg**, **jq**, **grep**, **find**, **tar** and **git**
+Supported tools: **ffmpeg**, **jq**, **grep**, **find**, **tar**, **git** and **curl**
 (see `natural_language_shell_architecture_plan.md`).
 
 ## Build
@@ -105,6 +105,13 @@ Quote the whole prompt so your shell doesn't interpret `>`, `'` or `*`.
 | `git "restore deleted file src/old.c"` | `git checkout "$(git rev-list -n 1 HEAD -- src/old.c)^" -- src/old.c` |
 | `git "create branch feature-x from main"` | `git switch -c feature-x main` |
 | `git "delete merged branches"` | `git branch --merged HEAD \| grep -vE '^[*+]\|…(main\|master\|develop)$' \| xargs -r git branch -d` |
+| `curl "post data.json to https://api.example.com/users"` | `curl -sS -X POST -H 'Content-Type: application/json' -d @data.json 'https://api.example.com/users'` |
+| `curl "check response status of https://example.com"` | `curl -sSIL -o /dev/null -w '%{http_code}\n' 'https://example.com'` |
+| `curl "download https://example.com/file.zip as out.zip"` | `curl -fL 'https://example.com/file.zip' -o out.zip` |
+| `curl 'delete https://api.example.com/users/42 with token $TOKEN'` | `curl -sS -X DELETE -H "Authorization: Bearer $TOKEN" 'https://api.example.com/users/42'` |
+| `curl "get json from api.github.com/users/octocat"` | `curl -sS -H 'Accept: application/json' 'https://api.github.com/users/octocat' \| jq .` |
+| `curl "get https://self.local ignoring ssl errors, retry 3 times, timeout 10s"` | `curl -sS -k --retry 3 --max-time 10 'https://self.local'` |
+| `curl "how long does https://example.com take"` | `curl -sS -o /dev/null -w 'dns: %{time_namelookup}s\n…total: %{time_total}s\n' 'https://example.com'` |
 
 Run `nls --list` to see all templates.
 
@@ -164,6 +171,14 @@ Run `nls --list` to see all templates.
      `last 3 commits` is a count, `by alice` / `by me` an author, `in the
      last 2 weeks` → `--since='2 weeks ago'`, `lines 10 to 20` → `-L 10,20`.
      Quoted text is a message or search string unless it looks like a path.
+   - For curl, the URL is `http(s)://…` (or a bare `localhost:3000/x` /
+     `api.example.com/x`, given a scheme), checked against the allowlist
+     `[A-Za-z0-9._~:/?#[]@!$&'()*+,;=%-]`. A path after `post`/`put`/`upload`
+     is the body; after `as`, `into` or `save … to` it is where the response
+     goes. Inline `{"a":1}` or `name=value` is a body too. `header 'X: y'` and
+     `token $TOKEN` / `bearer GITHUB_TOKEN` become `-H`; `follow redirects`,
+     `ignore ssl errors`, `retry 3`, `timeout 10s`, `as user alice` become
+     `-L`, `-k`, `--retry`, `--max-time`, `-u`.
 3. **Expander** (`src/expander.c`): fills the winning template.
    - Placeholders: `{TYPE:i}`, `{TYPE:i|default}`, `{OUT_FILE|ext|suffix}` and
      `<< optional >>` groups.
@@ -197,6 +212,14 @@ Run `nls --list` to see all templates.
   `branch -D`) are only run with `-x` after confirmation, and the safe
   variant wins ties (`undo last commit` → `reset --soft`, `delete branch` →
   `-d`, "which untracked files would be deleted" → `clean -n`).
+- curl only accepts `http(s)` URLs from a strict character allowlist and
+  always single-quotes them (`[`/`]` add `-g` so curl doesn't glob them).
+  Bearer tokens given as `$NAME` or an uppercase name are emitted as
+  `"Authorization: Bearer $NAME"`, so the secret stays in your environment
+  and out of the command and your shell history. (Single-quote the prompt so
+  your shell doesn't expand `$TOKEN` first.) A body on a GET, two bodies, two
+  URLs, a stray number or a saved response on a status check is refused
+  rather than dropped.
 - JSON paths may only contain `[A-Za-z0-9_.[]?]`. A prompt like
   `get .a;rm in data.json` is rejected.
 

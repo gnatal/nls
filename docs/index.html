@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>nls: plain English to ffmpeg, jq, grep, find, tar and git commands</title>
-<meta name="description" content="nls turns plain English into the exact ffmpeg, jq, grep, find, tar or git command. Offline, about 2 ms, no AI. 188 KB of C11.">
+<title>nls: plain English to ffmpeg, jq, grep, find, tar, git and curl commands</title>
+<meta name="description" content="nls turns plain English into the exact ffmpeg, jq, grep, find, tar, git or curl command. Offline, about 2 ms, no AI. 217 KB of C11.">
 <meta property="og:title" content="nls: plain English in, the exact command out">
-<meta property="og:description" content="ffmpeg, jq, grep, find, tar and git commands from plain English. Offline, deterministic, no LLM.">
+<meta property="og:description" content="ffmpeg, jq, grep, find, tar, git and curl commands from plain English. Offline, deterministic, no LLM.">
 <meta property="og:image" content="https://gnatal.github.io/nls/nls-demo.gif">
 <meta property="og:url" content="https://gnatal.github.io/nls/">
 <meta name="twitter:card" content="summary_large_image">
@@ -235,12 +235,12 @@
 <main>
   <div class="wrap hero">
     <div class="eyebrow">
-      <span>offline</span><span>~2 ms</span><span>no AI</span><span>188 KB of C11</span>
+      <span>offline</span><span>~2 ms</span><span>no AI</span><span>217 KB of C11</span>
     </div>
     <h1>Plain English in. <em>The exact command</em> out.</h1>
     <p class="lede">
       <code>nls</code> turns what you mean into the right <strong>ffmpeg</strong>,
-      <strong>jq</strong>, <strong>grep</strong>, <strong>find</strong>, <strong>tar</strong> or <strong>git</strong> command.
+      <strong>jq</strong>, <strong>grep</strong>, <strong>find</strong>, <strong>tar</strong>, <strong>git</strong> or <strong>curl</strong> command.
       You don't need to look up flags, and nothing is sent to a model.
       Every command comes from a tested template.
     </p>
@@ -251,7 +251,7 @@
 
     <div class="term demo">
       <div class="term-bar"><i></i><i></i><i></i><b>nls demo</b></div>
-      <img src="nls-demo.gif" alt="Terminal recording: nls turning English prompts into ffmpeg, jq, grep, find, tar and git commands and running them" width="1300" height="620" loading="eager">
+      <img src="nls-demo.gif" alt="Terminal recording: nls turning English prompts into ffmpeg, jq, grep, find, tar, git and curl commands and running them" width="1300" height="620" loading="eager">
     </div>
   </div>
 
@@ -268,6 +268,7 @@
         <button class="tab" role="tab" aria-selected="false" aria-controls="t-find"   id="b-find"   tabindex="-1">find</button>
         <button class="tab" role="tab" aria-selected="false" aria-controls="t-tar"    id="b-tar"    tabindex="-1">tar</button>
         <button class="tab" role="tab" aria-selected="false" aria-controls="t-git"    id="b-git"    tabindex="-1">git</button>
+        <button class="tab" role="tab" aria-selected="false" aria-controls="t-curl"   id="b-curl"   tabindex="-1">curl</button>
       </div>
 
       <div class="term panel" role="tabpanel" id="t-ffmpeg" aria-labelledby="b-ffmpeg">
@@ -351,6 +352,25 @@
 <span class="o">git checkout "$(git rev-list -n 1 HEAD -- src/old.c)^" -- src/old.c</span></pre>
       </div>
 
+      <div class="term panel" role="tabpanel" id="t-curl" aria-labelledby="b-curl" hidden>
+        <div class="term-bar"><i></i><i></i><i></i><b>curl</b></div>
+<pre><span class="p">$</span> nls curl <span class="s">"post data.json to https://api.example.com/users"</span>
+<span class="o">curl -sS -X POST -H 'Content-Type: application/json' -d @data.json 'https://api.example.com/users'</span>
+
+<span class="p">$</span> nls -x -y curl <span class="s">"check response status of https://example.com"</span>
+<span class="o">→ curl -sSIL -o /dev/null -w '%{http_code}\n' 'https://example.com'</span>
+200
+
+<span class="p">$</span> nls curl <span class="s">'delete https://api.example.com/users/42 with token $TOKEN'</span>
+<span class="o">curl -sS -X DELETE -H "Authorization: Bearer $TOKEN" 'https://api.example.com/users/42'</span>
+
+<span class="p">$</span> nls curl <span class="s">"download https://example.com/file.zip as out.zip"</span>
+<span class="o">curl -fL 'https://example.com/file.zip' -o out.zip</span>
+
+<span class="p">$</span> nls curl <span class="s">"get data.json to https://api.example.com/users"</span>
+<span class="e">nls: this request doesn't send a body ('data.json'); did you mean post, put or patch? (curl_get)</span></pre>
+      </div>
+
       <p class="note" id="note">It picks <code>-c copy</code> when it can, so trimming a clip doesn't re-encode it.</p>
     </div>
   </section>
@@ -361,13 +381,13 @@
       <h2>It does fewer things, but it gets them right</h2>
       <p class="sub">
         AI command generators can handle anything, but they need a network, take seconds, and sometimes invent flags.
-        <code>nls</code> covers six tools and treats each one carefully.
+        <code>nls</code> covers seven tools and treats each one carefully.
       </p>
       <div class="grid">
         <div class="card"><div class="stat">~2<small> ms</small></div><h3>Instant</h3><p>That includes starting the process. You won't wait on a spinner.</p></div>
         <div class="card"><div class="stat">0<small> requests</small></div><h3>Private</h3><p>Your file names and data never leave your machine. It needs no API key and works on a plane.</p></div>
         <div class="card"><div class="stat">1:1</div><h3>Deterministic</h3><p>The same input always gives the same output, so you can script it and trust it.</p></div>
-        <div class="card"><div class="stat">569<small> tests</small></div><h3>Tested for real</h3><p>The tests run the generated commands against real ffmpeg, jq, grep, find, tar and git, and check ffmpeg's output with ffprobe.</p></div>
+        <div class="card"><div class="stat">642<small> tests</small></div><h3>Tested for real</h3><p>The tests run the generated commands against real ffmpeg, jq, grep, find, tar, git and curl, and check ffmpeg's output with ffprobe.</p></div>
       </div>
 
       <div class="table-wrap" style="margin-top:36px">
@@ -379,7 +399,7 @@
             <tr><td>Latency</td><td class="yes">~2 ms</td><td>Typically seconds</td></tr>
             <tr><td>Your files and data</td><td class="yes">Stay on your machine</td><td>Sent to a provider, unless self-hosted</td></tr>
             <tr><td>Invented flags</td><td class="yes">Not possible: every command is a tested template</td><td>Possible</td></tr>
-            <tr><td>Coverage</td><td>ffmpeg, jq, grep, find, tar, git (163 templates)</td><td class="yes">Anything</td></tr>
+            <tr><td>Coverage</td><td>ffmpeg, jq, grep, find, tar, git, curl (176 templates)</td><td class="yes">Anything</td></tr>
           </tbody>
         </table>
       </div>
@@ -390,11 +410,11 @@
     <div class="wrap">
       <p class="kicker">How it works</p>
       <h2>A small compiler from English to shell</h2>
-      <p class="sub">There are no models or weights, just about 4,900 lines of C11 using the standard library and no other dependencies.</p>
+      <p class="sub">There are no models or weights, just about 5,700 lines of C11 using the standard library and no other dependencies.</p>
       <div class="pipe">
         <div class="card">
           <h3>Lexer</h3>
-          <p>It pulls typed values out of your sentence: files, timestamps, resolutions, sizes, ages, JSON paths, archives, branches and revisions. <code>10 seconds</code> becomes TIME <code>10</code>, and <code>width 640</code> becomes RES <code>640:-2</code>.</p>
+          <p>It pulls typed values out of your sentence: files, timestamps, resolutions, sizes, ages, JSON paths, archives, branches, revisions and URLs. <code>10 seconds</code> becomes TIME <code>10</code>, and <code>width 640</code> becomes RES <code>640:-2</code>.</p>
         </div>
         <div class="card">
           <h3>Matcher</h3>
@@ -420,6 +440,7 @@
         <li><strong>Quoted everywhere.</strong> File names and strings are single-quoted, and JSON paths are checked against a strict character set.</li>
         <li><strong>No flag injection.</strong> grep patterns go through <code>-e</code>, so searching for <code>-v</code> can't turn into an option.</li>
         <li><strong>Safe by default in git.</strong> Ties go to the safe variant: "undo last commit" is <code>reset --soft</code>, "delete branch" is <code>-d</code>, and <code>--hard</code> only appears when you say "throw away" or "discard".</li>
+        <li><strong>Secrets stay secret in curl.</strong> URLs must pass a strict allowlist and are always quoted, and <code>token $TOKEN</code> becomes <code>-H "Authorization: Bearer $TOKEN"</code>, so the token never lands in the command or your shell history.</li>
         <li><strong>Avoids the classic traps.</strong> It writes <code>-L</code> instead of <code>-lv</code>, ends <code>-prune -o</code> with <code>-print</code>, and never combines <code>-delete</code> with <code>-prune</code>.</li>
       </ul>
     </div>
@@ -438,20 +459,21 @@
 <span class="c"># then</span>
 <span class="p">$</span> nls --list          <span class="c"># every template, with example prompts</span>
 <span class="p">$</span> nls -x grep <span class="s">"find TODO in src"</span>   <span class="c"># run it (asks first)</span>
-<span class="p">$</span> nls git <span class="s">"undo last commit"</span>       <span class="c"># git reset --soft HEAD~1</span></pre>
+<span class="p">$</span> nls git <span class="s">"undo last commit"</span>       <span class="c"># git reset --soft HEAD~1</span>
+<span class="p">$</span> nls curl <span class="s">"is https://example.com up"</span>  <span class="c"># prints the status code</span></pre>
         </div>
       </div>
       <div class="limits">
         <h3>What it doesn't do (yet)</h3>
         <ul>
-          <li>It only knows ffmpeg, jq, grep, find, tar and git so far, and git means common workflows, not all of git.</li>
+          <li>It only knows ffmpeg, jq, grep, find, tar, git and curl so far, and git and curl mean common workflows, not every flag.</li>
           <li>It supports POSIX shells only; quoting isn't Windows-safe.</li>
           <li>jq filters can't combine conditions yet.</li>
           <li>grep can't exclude directories yet.</li>
-          <li>It's tested on macOS with BSD grep, find and tar, and git 2.55. The flags it uses also exist in GNU; git needs 2.23+ for <code>switch</code>/<code>restore</code>.</li>
+          <li>It's tested on macOS with BSD grep, find and tar, git 2.55 and curl 8.7. The flags it uses also exist in GNU; git needs 2.23+ for <code>switch</code>/<code>restore</code>.</li>
         </ul>
         <h3>Help shape it</h3>
-        <p>Which commands do you look up most often? <a href="https://github.com/gnatal/nls/issues">Open an issue</a> and they could become the next templates. curl and openssl are next on the list.</p>
+        <p>Which commands do you look up most often? <a href="https://github.com/gnatal/nls/issues">Open an issue</a> and they could become the next templates. openssl and ImageMagick are next on the list.</p>
       </div>
     </div>
   </section>
@@ -471,7 +493,8 @@
     grep: "“Files not containing X” becomes <code>-L</code>, not <code>-lv</code>, which would list almost every file.",
     find: "With no filter, a delete is refused, so “delete files” can't wipe a folder.",
     tar: "The compression letter comes from the archive name, and <code>-f</code> always goes last, so <code>-cfz</code> can't create a file named <code>z</code>.",
-    git: "“Undo” means <code>reset --soft</code> unless you say “throw away”, and “already pushed” switches to <code>git revert</code>."
+    git: "“Undo” means <code>reset --soft</code> unless you say “throw away”, and “already pushed” switches to <code>git revert</code>.",
+    curl: "<code>-d @data.json</code> sends the file, not the text “data.json”, and <code>$TOKEN</code> stays a variable, so the secret never appears in the command."
   };
   const tabs = [...document.querySelectorAll('.tab')];
   function select(tab) {

@@ -9,21 +9,22 @@ numbers change as templates are added.
 | `README.md` | Positioning, messaging, fact sheet (this file) |
 | `launch-posts.md` | Ready-to-edit posts: Show HN, Reddit, X/Bluesky thread, LinkedIn |
 | `demo.tape` | [VHS](https://github.com/charmbracelet/vhs) script that records the terminal demo GIF |
-| `make-demo-media.sh` | Generates royalty-free demo files (`talk.mp4`, `demo.mp4`, `users.json`, a small `src/` tree, `app.log`, plus old logs, big files, `node_modules/` and `.DS_Store` clutter for the find demo, `.git/`, `node_modules/` and a `release-1.0.tgz` for the tar demo, and a `project/` git repo with two authors and a feature branch for the git demo) |
+| `make-demo-media.sh` | Generates royalty-free demo files (`talk.mp4`, `demo.mp4`, `users.json`, a small `src/` tree, `app.log`, plus old logs, big files, `node_modules/` and `.DS_Store` clutter for the find demo, `.git/`, `node_modules/` and a `release-1.0.tgz` for the tar demo, a `project/` git repo with two authors and a feature branch for the git demo, and a `data.json` body for the curl demo) |
 
 ---
 
 ## One-liner
 
-> **Plain English in, the exact ffmpeg, jq, grep, find, tar or git command out. Offline, instant, no AI.**
+> **Plain English in, the exact ffmpeg, jq, grep, find, tar, git or curl command out. Offline, instant, no AI.**
 
 Alternatives:
 - "Stop googling ffmpeg flags."
 - "`nls` compiles English into shell commands."
-- "The ffmpeg/jq/grep/find/tar/git cheat sheet you can talk to."
+- "The ffmpeg/jq/grep/find/tar/git/curl cheat sheet you can talk to."
 - "Never type `-prune -o` again."
 - "Stop looking up which tar flag is xz."
 - "Undo that commit without googling `reset --soft` vs `--hard`."
+- "POST that JSON without looking up `-H`, `-d` and `@`."
 - "Search your code in plain English, without an AI reading it."
 
 ## Elevator pitch (30 seconds)
@@ -34,15 +35,20 @@ match" is `grep -L` or `grep -lv`. `find` with `-prune` is something
 people copy from Stack Overflow every single time, `tar` is the classic
 "which letters, in which order?" command, and every developer has a git
 command they're scared to type ("was it `reset --soft` or `--hard`?").
-`nls` lets you type what you want, like
+And testing an API with curl means remembering `-X POST`, the JSON header,
+`-d @file` and how to print just the status code. `nls` lets you type what
+you want, like
 `nls ffmpeg "extract the first 10 seconds of talk.mp4 into intro.mp4"`,
 `nls grep "which python files contain TODO, ignoring case"`,
 `nls find "files larger than 5MB ignoring node_modules"`,
-`nls tar "extract release.tgz into dist/ without the top-level folder"` or
-`nls git "undo last 2 commits keep changes staged"`. You get back the exact
-command, ready to run.
+`nls tar "extract release.tgz into dist/ without the top-level folder"`,
+`nls git "undo last 2 commits keep changes staged"` or
+`nls curl "post data.json to https://api.example.com/users"`. You get back
+the exact command, ready to run.
 
-It isn't a chatbot. There's no API key, no network, and no model. A tiny C
+It isn't a chatbot. There's no API key, no network, and no model. (curl's
+commands use the network when you run them, of course; `nls` itself never
+does.) A tiny C
 program matches your words against a built-in library of command templates.
 That means the same request always gives the same answer, in about 2 ms,
 even on a plane.
@@ -245,6 +251,55 @@ The git examples show the traps people fall into by hand:
   reset or restore with the wrong target is exactly the mistake people
   fear.
 
+curl (status and timing hit the real sites; numbers vary by network):
+
+```console
+$ nls curl "post data.json to https://api.example.com/users"
+curl -sS -X POST -H 'Content-Type: application/json' -d @data.json 'https://api.example.com/users'
+
+$ nls -x -y curl "check response status of https://example.com"
+→ curl -sSIL -o /dev/null -w '%{http_code}\n' 'https://example.com'
+200
+
+$ nls -x -y curl "how long does https://example.com take"
+→ curl -sS -o /dev/null -w 'dns:        %{time_namelookup}s\nconnect:    %{time_connect}s\ntls:        %{time_appconnect}s\nfirst byte: %{time_starttransfer}s\ntotal:      %{time_total}s\n' 'https://example.com'
+dns:        0.002579s
+connect:    0.230809s
+tls:        0.264128s
+first byte: 0.297451s
+total:      0.297618s
+
+$ nls curl 'delete https://api.example.com/users/42 with token $TOKEN'
+curl -sS -X DELETE -H "Authorization: Bearer $TOKEN" 'https://api.example.com/users/42'
+
+$ nls curl "download https://example.com/file.zip as out.zip"
+curl -fL 'https://example.com/file.zip' -o out.zip
+
+$ nls curl "get json from api.github.com/users/octocat"
+curl -sS -H 'Accept: application/json' 'https://api.github.com/users/octocat' | jq .
+
+$ nls curl "get data.json to https://api.example.com/users"
+nls: this request doesn't send a body ('data.json'); did you mean post, put or patch? (curl_get)
+```
+
+The curl examples show the traps people fall into by hand:
+- **The JSON POST incantation**: `-X POST`, the `Content-Type` header, and
+  `-d @file` (the `@` is what makes curl read the file instead of sending
+  the literal text `data.json`). Non-JSON files like `.csv` use
+  `--data-binary`, since `-d` strips their newlines.
+- **Just the status code** needs `-o /dev/null -w '%{http_code}\n'`, and `-L`
+  so a redirect doesn't report `301`.
+- **Downloads that fail loudly.** `-f` makes a 404 an error instead of
+  saving the error page as `file.zip`; `-L` follows the CDN redirect.
+- **Tokens stay out of the command.** `token $TOKEN` becomes
+  `-H "Authorization: Bearer $TOKEN"` (double quotes, so your shell fills it
+  in), so the secret never lands in your history or a pasted snippet.
+- **URLs are always quoted.** An unquoted `?a=1&b=2` backgrounds the command
+  at the `&`; `[]` in a query string gets `-g` so curl doesn't treat it as a
+  glob.
+- **Nothing gets dropped**: a body on a GET, two URLs or a stray number is
+  refused, not silently ignored.
+
 ## Who it's for
 
 | Audience | Pain | Message |
@@ -253,9 +308,10 @@ The git examples show the traps people fall into by hand:
 | Anyone searching code or logs | `-l` vs `-L`, `--include` globs, context flags | "Ask for 'python files that don't mention TODO' and get the right grep." |
 | Anyone cleaning up disks or repos | `-prune` syntax, `+`/`-` signs, fear of `-delete` | "Find what's eating your disk, and delete it without the scary part." |
 | Anyone shipping releases or making backups | tar flag letters and order, excludes, `--strip-components` | "Say what goes in the archive; get the tar line right the first time." |
+| Backend developers testing APIs | `-X`/`-H`/`-d @file`, status-only output, auth headers | "Say what to send where; get the curl line right the first time." |
 | Every developer using git | Fear of `reset`, `-S` vs `--grep`, `A..B` order, recovering deleted files | "Say what you want to undo; get the safe git command." |
 | People who distrust AI shell tools | Hallucinated flags, data sent to the cloud, API cost | "Deterministic. Offline. Nothing leaves your machine." |
-| C / systems programmers | Bloat | "188 KB, links only the system C library, about 4,900 lines of C11." |
+| C / systems programmers | Bloat | "217 KB, links only the system C library, about 5,700 lines of C11." |
 | Content creators, podcasters | Need cuts, GIFs, audio extraction | "Cut, compress, GIF, extract audio in one sentence." |
 
 ## Differentiators (vs. AI command generators)
@@ -267,7 +323,7 @@ The git examples show the traps people fall into by hand:
 | Latency | ~2 ms | Typically seconds |
 | Your file names and data | Never leave the machine | Sent to a provider (unless self-hosted) |
 | Invents flags that don't exist | Can't: every command comes from a tested template | Possible |
-| Coverage | Limited to its templates (ffmpeg, jq, grep, find, tar, git for now) | Anything |
+| Coverage | Limited to its templates (ffmpeg, jq, grep, find, tar, git, curl for now) | Anything |
 
 Be honest about the last row. "It does fewer things, but it gets them right"
 is a stronger pitch than pretending it does everything.
@@ -276,16 +332,16 @@ is a stronger pitch than pretending it does everything.
 
 | Claim | Value | How to re-check |
 |---|---|---|
-| Binary size | 188 KB | `make && ls -l nls` |
+| Binary size | 217 KB | `make && ls -l nls` |
 | Dependencies | System C library only | `otool -L nls` (macOS) / `ldd nls` (Linux) |
-| Source size | ~4,900 lines of C11 | `wc -l src/*` |
-| Speed | ~1.9 ms per call, including process start | `time` a loop of 1,000 runs |
-| Templates | 163 (30 ffmpeg, 47 jq, 9 grep, 7 find, 3 tar, 67 git) | `nls --list \| grep -c '^[a-z]*_'` |
-| Tests | 569 (354 command-text, 59 run with real jq, 16 run with real grep, 29 run with real find on a generated tree, 19 run with real tar creating, listing and extracting archives, 54 run with real git in a throwaway repo, 38 run with real ffmpeg + ffprobe) | `make test` |
-| Safety | Prints only, unless `-x`; `-x` asks first; file names and strings are shell-quoted; jq strings go through `--arg`; grep patterns go through `-e`; find refuses unfiltered deletes and anything it can't fully express; tar refuses mismatched compression, non-tar names and stray values, and a bare archive name only lists; git refuses anything it can't fully use, stray numbers, unquoted shell syntax and invalid branch names, and ties go to the safe variant (`reset --soft`, `branch -d`, `clean -n`) | `README.md` → Safety |
+| Source size | ~5,700 lines of C11 | `wc -l src/*` |
+| Speed | ~1.7 ms per call, including process start | `time` a loop of 1,000 runs |
+| Templates | 176 (30 ffmpeg, 47 jq, 9 grep, 7 find, 3 tar, 67 git, 13 curl) | `nls --list \| grep -c '^[a-z]*_'` |
+| Tests | 642 (396 command-text, 59 run with real jq, 16 run with real grep, 29 run with real find on a generated tree, 19 run with real tar creating, listing and extracting archives, 54 run with real git in a throwaway repo, 31 run with real curl against a local test server, 38 run with real ffmpeg + ffprobe) | `make test` |
+| Safety | Prints only, unless `-x`; `-x` asks first; file names and strings are shell-quoted; jq strings go through `--arg`; grep patterns go through `-e`; find refuses unfiltered deletes and anything it can't fully express; tar refuses mismatched compression, non-tar names and stray values, and a bare archive name only lists; git refuses anything it can't fully use, stray numbers, unquoted shell syntax and invalid branch names, and ties go to the safe variant (`reset --soft`, `branch -d`, `clean -n`); curl only accepts http(s) URLs from a strict allowlist, always single-quotes them, keeps `$TOKEN` secrets as variables, and refuses bodies on GETs, two URLs and stray values | `README.md` → Safety |
 
 Wording rules:
-- Say "about 2 ms", not "sub-millisecond". The 1.9 ms includes starting the
+- Say "about 2 ms", not "sub-millisecond". The 1.7 ms includes starting the
   process.
 - Say "no AI / no LLM", not "no machine learning hype". Keep it factual.
 - Don't claim Windows support yet. The quoting is POSIX-only.
@@ -310,6 +366,15 @@ Wording rules:
 - git covers common workflows (undo, squash, search, blame, branches, stash,
   tags, recovery), not all of git. Don't say "any git command". There's no
   `push --force` (only `--force-with-lease`) and no remote management yet.
+- curl: tested with curl 8.7 on macOS. `download … into dir/` uses
+  `--output-dir`, which needs curl 7.73 or newer (2020), and the folder must
+  exist. The status check uses `-I` (a HEAD request), as is common; a few
+  APIs answer HEAD with `405`, so demo it on a normal website.
+- "No network" means `nls` itself. Say "offline" about compiling the
+  command, never about running a curl command.
+- Single-quote curl prompts that contain `$TOKEN`, or the shell expands it
+  before `nls` sees it (and the secret ends up in the command). Show the
+  single quotes in every demo.
 - Never run the git demo in a real repo you care about: `make-demo-media.sh`
   builds a throwaway one in `marketing/demo/project/`.
 
@@ -327,4 +392,5 @@ Wording rules:
       input, jq AND conditions, find "modified after 2026-01-01" and
       "run X on each file", tar creating the destination folder and
       appending to archives, git "discard all local changes" and remote
-      management, curl and openssl next). Launch threads always ask.
+      management, curl cookies and retries on specific status codes, openssl
+      and ImageMagick next). Launch threads always ask.

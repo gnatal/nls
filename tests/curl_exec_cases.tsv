@@ -1,0 +1,36 @@
+# prompt	check command (run after the compiled command; $OUT is its stdout)	expected check output (normalized)
+# --- requests: the echo server reports method, path, content type, auth and body ---
+get {BASE}/echo	printf "%s" "$OUT"	GET /echo content-type: - authorization: - x-api-key: -
+{BASE}/echo/bare	printf "%s" "$OUT" | head -1	GET /echo/bare
+post data.json to {BASE}/echo/users	printf "%s" "$OUT"	POST /echo/users content-type: application/json authorization: - x-api-key: - {"name": "bob"}
+post {"name":"amy"} to {BASE}/echo	printf "%s" "$OUT" | sed -n "2p;5p"	content-type: application/json {"name":"amy"}
+post name=bob age=3 to {BASE}/echo	printf "%s" "$OUT" | sed -n "2p;5p"	content-type: application/x-www-form-urlencoded name=bob&age=3
+post users.csv to {BASE}/echo/import	printf "%s" "$OUT" | sed -n "2p;5,6p"	content-type: text/csv id,name 1,bob
+put data.json to {BASE}/echo/settings	printf "%s" "$OUT" | head -1	PUT /echo/settings
+patch '{"active":false}' to {BASE}/echo/users/42	printf "%s" "$OUT" | sed -n "1p;5p"	PATCH /echo/users/42 {"active":false}
+delete {BASE}/echo/users/42 with token $TOKEN	printf "%s" "$OUT" | sed -n "1p;3p"	DELETE /echo/users/42 authorization: Bearer s3cret
+get {BASE}/echo with bearer token API_TOKEN	printf "%s" "$OUT" | sed -n 3p	authorization: Bearer t0ken
+get {BASE}/echo with header 'X-Api-Key: abc123'	printf "%s" "$OUT" | sed -n 4p	x-api-key: abc123
+get {BASE}/echo as user alice:pw	printf "%s" "$OUT" | sed -n 3p	authorization: Basic YWxpY2U6cHc=
+upload photo.png and notes.txt to {BASE}/echo/upload	printf "%s" "$OUT" | sed -n "2p;5p"	content-type: multipart/form-data file=photo.png file=notes.txt
+get {BASE}/echo?q[]=1	printf "%s" "$OUT" | head -1	GET /echo?q[]=1
+get json from {BASE}/json	printf "%s" "$OUT"	{ "ok": true, "n": [ 1, 2 ] }
+# --- status, headers, timing ---
+check response status of {BASE}/status/404	printf "%s" "$OUT"	404
+is {BASE}/redirect up	printf "%s" "$OUT"	200
+show response headers of {BASE}/echo	printf "%s" "$OUT" | head -1 | tr -d "\r"	HTTP/1.0 200 OK
+how long does {BASE}/echo take	printf "%s\n" "$OUT" | cut -d: -f1	dns connect tls first byte total
+# --- downloads and saving ---
+download {BASE}/files/big.bin	wc -c < big.bin	100
+download {BASE}/files/big.bin as out.bin	wc -c < out.bin	100
+download {BASE}/files/big.bin into downloads/	wc -c < downloads/big.bin	100
+download {BASE}/status/500 as err.txt	true	!FAIL
+get {BASE}/echo and save to resp.txt	head -1 resp.txt	GET /echo
+post data.json to {BASE}/echo and save the response to resp.txt	sed -n 5p resp.txt	{"name": "bob"}
+resume download of {BASE}/files/part.bin	cat part.bin	0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789
+get {BASE}/redirect following redirects	printf "%s" "$OUT" | head -1	GET /echo
+get {BASE}/slow with timeout 1s	true	!FAIL
+# --- refused ---
+get data.json to {BASE}/echo	true	!ERR
+get {BASE}/echo 5	true	!ERR
+download {BASE}/	true	!ERR

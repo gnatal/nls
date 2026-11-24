@@ -127,5 +127,8 @@ if command -v git >/dev/null 2>&1; then
     g switch -q main
 fi
 
+# curl demo: a JSON body to POST (the demo only prints that command)
+printf '{"name": "Ada", "email": "ada@example.com"}\n' > "$OUT/data.json"
+
 echo "demo files in $OUT:"
 ls -1 "$OUT"

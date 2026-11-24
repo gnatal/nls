@@ -357,3 +357,46 @@ git	stash called wip	git stash push -m 'wip'
 git	commit 'wip'	git commit -m 'wip'
 git	when was src/old.c deleted	git log --diff-filter=D --oneline -- src/old.c
 git	create branch ..evil	!ERR
+# --- curl ---
+curl	post data.json to https://api.example.com/users	curl -sS -X POST -H 'Content-Type: application/json' -d @data.json 'https://api.example.com/users'
+curl	check response status of https://example.com	curl -sSIL -o /dev/null -w '%{http_code}\n' 'https://example.com'
+curl	download https://example.com/file.zip as out.zip	curl -fL 'https://example.com/file.zip' -o out.zip
+curl	get https://api.example.com/users	curl -sS 'https://api.example.com/users'
+curl	https://api.example.com/users	curl -sS 'https://api.example.com/users'
+curl	get json from https://api.example.com/users	curl -sS -H 'Accept: application/json' 'https://api.example.com/users' | jq .
+curl	post {"name":"bob"} to https://api.example.com/users	curl -sS -X POST -H 'Content-Type: application/json' -d '{"name":"bob"}' 'https://api.example.com/users'
+curl	post name=bob age=3 to localhost:3000/users	curl -sS -X POST -d 'name=bob' -d 'age=3' 'http://localhost:3000/users'
+curl	put config.json to https://api.example.com/settings	curl -sS -X PUT -H 'Content-Type: application/json' -d @config.json 'https://api.example.com/settings'
+curl	patch '{"active":false}' to https://api.example.com/users/42	curl -sS -X PATCH -H 'Content-Type: application/json' -d '{"active":false}' 'https://api.example.com/users/42'
+curl	delete https://api.example.com/users/42 with token $TOKEN	curl -sS -X DELETE -H "Authorization: Bearer $TOKEN" 'https://api.example.com/users/42'
+curl	get api.github.com/user with bearer token GITHUB_TOKEN	curl -sS -H "Authorization: Bearer $GITHUB_TOKEN" 'https://api.github.com/user'
+curl	get https://example.com with header 'X-Api-Key: abc123'	curl -sS -H 'X-Api-Key: abc123' 'https://example.com'
+curl	post data.json to https://example.com with header 'Content-Type: application/vnd.api+json'	curl -sS -X POST -H 'Content-Type: application/vnd.api+json' -d @data.json 'https://example.com'
+curl	download https://example.com/file.zip	curl -fL 'https://example.com/file.zip' -O
+curl	download https://example.com/file.zip into downloads/	curl -fL 'https://example.com/file.zip' --output-dir downloads/ -O
+curl	download report.pdf from https://example.com/r?id=3	curl -fL 'https://example.com/r?id=3' -o report.pdf
+curl	resume download of https://example.com/big.iso	curl -fL -C - 'https://example.com/big.iso' -O
+curl	upload photo.png to https://example.com/upload	curl -sS -F 'file=@photo.png' 'https://example.com/upload'
+curl	debug https://example.com	curl -v -o /dev/null 'https://example.com'
+curl	get https://self.local ignoring ssl errors, follow redirects, retry 3 times, timeout 10s	curl -sS -L -k --retry 3 --max-time 10 'https://self.local'
+curl	get https://example.com with a 2 minute timeout	curl -sS --max-time 120 'https://example.com'
+curl	download https://example.com/a.tar.gz quietly compressed	curl -fL --compressed 'https://example.com/a.tar.gz' -O
+curl	get https://example.com as user alice	curl -sS -u alice 'https://example.com'
+curl	show response headers of https://example.com	curl -sS -D - -o /dev/null 'https://example.com'
+curl	is https://example.com up	curl -sSIL -o /dev/null -w '%{http_code}\n' 'https://example.com'
+curl	get https://example.com and save to out.html	curl -sS 'https://example.com' -o out.html
+curl	get data.json from https://example.com	curl -sS 'https://example.com' -o data.json
+curl	post data.json to https://api.example.com/users and save the response to resp.json	curl -sS -X POST -H 'Content-Type: application/json' -d @data.json 'https://api.example.com/users' -o resp.json
+curl	post users.csv to https://api.example.com/import	curl -sS -X POST -H 'Content-Type: text/csv' --data-binary @users.csv 'https://api.example.com/import'
+curl	get https://example.com/a?x[]=1	curl -sS -g 'https://example.com/a?x[]=1'
+curl	fetch https://x.com/'$(id)'	curl -sS 'https://x.com/'\''$(id)'\'''
+curl	download https://example.com/	!ERR
+curl	get https://a.com https://b.com	!ERR
+curl	get https://example.com 5	!ERR
+curl	upload to https://example.com/upload	!ERR
+curl	get 'https://example.com/a b'	!ERR
+curl	get https://example.com/`id`	!ERR
+curl	post data.json and '{"a":1}' to https://example.com	!ERR
+curl	delete https://example.com/x with body '{"a":1}'	!ERR
+curl	upload 'a;type=x.png' to https://example.com/u	!ERR
+curl	check status of https://example.com and save to out.txt	!ERR
