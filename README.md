@@ -18,6 +18,20 @@ Supported tools: **ffmpeg**, **jq**, **grep**, **find**, **tar**, **git**, **cur
 **magick** (also reachable as `nls convert …`)
 (see `natural_language_shell_architecture_plan.md`).
 
+## Install
+
+Prebuilt binaries (Linux x86_64/arm64, macOS universal) are attached to each
+[GitHub release](https://github.com/gnatal/nls/releases). To download, verify
+and install the latest one into `~/.local/bin`:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/gnatal/nls/main/install.sh | sh
+```
+
+Set `NLS_VERSION=0.1.0` to pick a release, or `PREFIX=/usr/local` to install
+system-wide. You can also build from source (below): it's one `make` with no
+dependencies.
+
 ## Build
 
 ```sh
@@ -136,7 +150,8 @@ Run `nls --list` to see all templates.
 
 ## How it works
 
-1. **Lexer** (`src/lexer.c`): extracts typed slots and keeps the remaining
+1. **Lexer** (`src/lexer.c` tokenizes, then the tool's `src/lexer_<tool>.c`
+   classifies): extracts typed slots and keeps the remaining
    words as intent tokens. The slot types are `FILE`, `EXT`, `TIME`, `RES`,
    `BITRATE`, `FPS`, `FACTOR`, `NUM`, `QUOTED_STR`, `JSON_PATH`, `SIZE` and `EXCLUDE`.
    - It uses a little context: `10 seconds` → TIME `10`, `width 640` → RES
@@ -208,7 +223,8 @@ Run `nls --list` to see all templates.
      batch (`mogrify` on `'assets/*.png'`), and the output name only gets a
      suffix (`_resized`) when it would otherwise overwrite the input
      (`hero.png` → `hero.webp`, but → `hero_resized.png`).
-3. **Expander** (`src/expander.c`): fills the winning template.
+3. **Expander** (`src/expander.c`, plus `src/expander_<tool>.c` for tools with
+   their own builders and refusal rules): fills the winning template.
    - Placeholders: `{TYPE:i}`, `{TYPE:i|default}`, `{OUT_FILE|ext|suffix}` and
      `<< optional >>` groups.
    - Filenames and strings are POSIX single-quoted.
@@ -267,3 +283,22 @@ Run `nls --list` to see all templates.
 Add an entry to `NL_TEMPLATES[]` in `src/templates.c`, then add a line to
 `tests/cases.tsv` and run `make test`. Use `nls -v` to see why a prompt
 matched (or didn't match) a template.
+
+## Adding a tool
+
+Each tool lives in its own files behind two small interfaces:
+
+| File | What goes in it |
+|---|---|
+| `src/lexer_<tool>.c` | `nl_lex_<tool>()`: turns raw tokens into slots and intent tokens. Declare it in `src/lexer_int.h` and add it to `LEXERS[]` in `src/lexer.c`. Shared helpers (`add_slot`, `looks_like_file`, `exclude_item`, …) are declared in `lexer_int.h`. |
+| `src/expander_<tool>.c` | Optional. A `ToolExpander` (`check`, `prologue`, `placeholder`, any of which may be `NULL`) for tool-specific placeholders and refusals. Register it in `EXPANDERS[]` in `src/expander.c`. ffmpeg, jq and grep get by with the generic template grammar alone. |
+| `src/templates.c` | The tool's `NL_TEMPLATES[]` entries. |
+| `src/nl.h`, `src/lexer.c` | A `TOOL_<NAME>` id and its name in `nl_tool_from_name()` / `nl_tool_name()`. |
+
+Then add golden cases to `tests/cases.tsv` and, ideally, a `tests/run_<tool>_exec.sh`
+suite that runs the generated commands. The Makefile builds every `src/*.c`, so
+new files need no build changes.
+
+## License
+
+[MIT](LICENSE): free to use, modify and redistribute, including commercially.

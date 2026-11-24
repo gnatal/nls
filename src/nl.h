@@ -5,6 +5,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+/* The release version: bump it here (and in CHANGELOG.md) before tagging
+ * vX.Y.Z. `make version` prints it; the release workflow checks the tag. */
 #define NL_VERSION        "0.1.0"
 
 #define NL_MAX_SLOTS      16

@@ -1,6 +1,15 @@
 CC       ?= cc
 CFLAGS   ?= -std=c11 -O2 -Wall -Wextra -pedantic -Werror
-SRC      := src/main.c src/lexer.c src/matcher.c src/expander.c src/templates.c src/inspect.c
+SRC      := $(wildcard src/*.c)
+HDR      := $(wildcard src/*.h)
+VERSION  := $(shell sed -n 's/^\#define NL_VERSION *"\(.*\)"/\1/p' src/nl.h)
+
+# Release archive: dist/nls-<version>-<target>.tar.gz (+ .sha256).
+#   make dist                            -> target from this machine, e.g. macos-arm64
+#   make dist TARGET=linux-x86_64        -> name it explicitly (used by CI)
+UNAME_S  := $(shell uname -s | tr A-Z a-z)
+TARGET   ?= $(subst darwin,macos,$(UNAME_S))-$(shell uname -m)
+DIST     := nls-$(VERSION)-$(TARGET)
 
 # Per-user install by default: no sudo needed.
 #   make install                        -> ~/.local/bin/nls
@@ -10,8 +19,8 @@ PREFIX   ?= $(HOME)/.local
 BIN_NAME ?= nls
 BINDIR   := $(DESTDIR)$(PREFIX)/bin
 
-nls: $(SRC) src/nl.h
-	$(CC) $(CFLAGS) $(SRC) -o $@
+nls: $(SRC) $(HDR)
+	$(CC) $(CFLAGS) $(SRC) $(LDFLAGS) -o $@
 
 test: nls
 	sh tests/run_tests.sh ./nls
@@ -44,7 +53,22 @@ install: nls
 uninstall:
 	rm -f "$(BINDIR)/$(BIN_NAME)"
 
+version:
+	@echo $(VERSION)
+
+dist: nls
+	rm -rf dist/$(DIST) dist/$(DIST).tar.gz dist/$(DIST).tar.gz.sha256
+	mkdir -p dist/$(DIST)
+	cp nls README.md dist/$(DIST)/
+	if [ -f LICENSE ]; then cp LICENSE dist/$(DIST)/; fi
+	if [ -f CHANGELOG.md ]; then cp CHANGELOG.md dist/$(DIST)/; fi
+	tar -C dist -czf dist/$(DIST).tar.gz $(DIST)
+	rm -rf dist/$(DIST)
+	cd dist && { sha256sum $(DIST).tar.gz 2>/dev/null || shasum -a 256 $(DIST).tar.gz; } > $(DIST).tar.gz.sha256
+	@echo "dist/$(DIST).tar.gz"
+
 clean:
 	rm -f nls
+	rm -rf dist
 
-.PHONY: test test-ffmpeg test-magick install uninstall clean
+.PHONY: test test-ffmpeg test-magick install uninstall version dist clean
