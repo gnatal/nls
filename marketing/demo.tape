@@ -1,8 +1,9 @@
 # Terminal demo GIF, recorded with VHS: https://github.com/charmbracelet/vhs
 #   brew install vhs
-#   sh marketing/make-demo-media.sh      # creates marketing/demo/ (talk.mp4, users.json, src/, app.log, logs/, assets/, node_modules/)
+#   make                                 # builds ./nls; the tape uses this build
+#   sh marketing/make-demo-media.sh      # creates marketing/demo/ (talk.mp4, users.json, src/, app.log, logs/, assets/, node_modules/, release-1.0.tgz, dist/)
 #   vhs marketing/demo.tape              # writes marketing/nls-demo.gif
-# Requires nls on PATH (make install).
+# Run from the repo root.
 
 Output marketing/nls-demo.gif
 
@@ -15,7 +16,8 @@ Set TypingSpeed 45ms
 Set Theme "Catppuccin Mocha"
 
 Hide
-Type "cd marketing/demo && clear"
+# use the repo's build, not an older installed nls; keep macOS tar from adding ._ files
+Type `export PATH="$PWD:$PATH" COPYFILE_DISABLE=1 && cd marketing/demo && clear`
 Enter
 Show
 
@@ -75,6 +77,22 @@ Enter
 Sleep 3s
 
 Type `nls find "delete all node_modules directories"`
+Sleep 400ms
+Enter
+Sleep 3.5s
+
+# 6. tar: excludes, compression from the name, --strip-components
+Hide
+Type "clear"
+Enter
+Show
+
+Type `nls -x -y tar "back up src/ into backup.tgz, skipping .git, node_modules and .DS_Store"`
+Sleep 400ms
+Enter
+Sleep 3s
+
+Type `nls -x -y tar "extract release-1.0.tgz into dist/ without the top-level folder"`
 Sleep 400ms
 Enter
 Sleep 3.5s

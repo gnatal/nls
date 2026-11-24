@@ -17,7 +17,7 @@ static void usage(FILE *f) {
         "usage: nls [options] <tool> \"<what you want>\"\n"
         "\n"
         "Compile a natural-language request into a shell command (offline).\n"
-        "Supported tools: ffmpeg, jq, grep, find\n"
+        "Supported tools: ffmpeg, jq, grep, find, tar\n"
         "\n"
         "options:\n"
         "  -x, --exec       run the command (asks for confirmation)\n"
@@ -32,6 +32,7 @@ static void usage(FILE *f) {
         "  nls jq \"get .name from users.json where .age > 30\"\n"
         "  nls grep \"which python files contain TODO, ignoring case\"\n"
         "  nls find \"files larger than 100MB modified in the last 7 days\"\n"
+        "  nls tar \"compress src/ into backup.tar.gz excluding .git\"\n"
         "  nls -x jq \"pretty print data.json\"\n");
 }
 
@@ -120,7 +121,7 @@ int main(int argc, char **argv) {
             if (i + 1 < argc) {
                 only = nl_tool_from_name(argv[i + 1]);
                 if (only == TOOL_UNKNOWN) {
-                    fprintf(stderr, "nls: unknown tool '%s' (supported: ffmpeg, jq, grep, find)\n", argv[i + 1]);
+                    fprintf(stderr, "nls: unknown tool '%s' (supported: ffmpeg, jq, grep, find, tar)\n", argv[i + 1]);
                     return 2;
                 }
             }
@@ -137,7 +138,7 @@ int main(int argc, char **argv) {
 
     ToolId tool = nl_tool_from_name(argv[i]);
     if (tool == TOOL_UNKNOWN) {
-        fprintf(stderr, "nls: unsupported tool '%s' (supported in this version: ffmpeg, jq, grep, find)\n", argv[i]);
+        fprintf(stderr, "nls: unsupported tool '%s' (supported in this version: ffmpeg, jq, grep, find, tar)\n", argv[i]);
         return 2;
     }
 

@@ -1,0 +1,23 @@
+# prompt	check command (run after the compiled command)	expected check output (sorted, normalized; trailing / dropped)
+# --- create: list what went into the archive, and check its compression ---
+compress src/ into backup.tar.gz excluding .git and node_modules	gzip -t backup.tar.gz && tar -tf backup.tar.gz	src src/debug.log src/main.c src/util.h
+compress src excluding *.log and hidden files	tar -tf src.tar.gz	src src/main.c src/node_modules src/node_modules/pkg src/node_modules/pkg/index.js src/util.h
+compress src/ with xz	xz -t src.tar.xz && tar -tf src.tar.xz	src src/.git src/.git/HEAD src/debug.log src/main.c src/node_modules src/node_modules/pkg src/node_modules/pkg/index.js src/util.h
+save docs as backup with bzip2	bzip2 -t backup.tar.bz2 && tar -tf backup.tar.bz2	docs docs/readme.md
+tar up the docs folder as zstd	zstd -tq docs.tar.zst && tar -tf docs.tar.zst	docs docs/readme.md
+compress docs and logs into release2.tgz	tar -tf release2.tgz	docs docs/readme.md logs logs/app.log
+archive logs/ as .tar	tar -tf logs.tar	logs logs/app.log
+compress docs into dist/	tar -tf dist/docs.tar.gz	docs docs/readme.md
+compress 'my files/' into "my backup.tar.gz"	tar -tf 'my backup.tar.gz'	my files my files/note.txt
+tar src/ --exclude node_modules --exclude .git quietly	tar -tf src.tar.gz	src src/debug.log src/main.c src/util.h
+# --- extract: look at what landed on disk ---
+extract release.tgz into dist/	cd dist && find . -type f	./release-1.0/README ./release-1.0/bin/app
+extract data.tar.xz into dist without the top-level folder	cd dist && find . -type f	./README ./bin/app
+extract plain.tar into dist strip 2 components	cd dist && find . -type f	./app
+extract release-1.0/README from release.tgz into dist	cd dist && find . -type f	./release-1.0/README
+extract release.tgz in dist excluding README	cd dist && find . -type f	./release-1.0/bin/app
+unpack logs.tar.zst to dist quietly	cd dist && find . -type f	./release-1.0/README ./release-1.0/bin/app
+untar plain.tar	find release-1.0 -type f	release-1.0/README release-1.0/bin/app
+# --- list: the command's own output (names only when quiet) ---
+list contents of release.tgz quietly	printf '%s\n' "$OUT"	release-1.0 release-1.0/README release-1.0/bin release-1.0/bin/app
+list release-1.0/bin in data.tar.xz quietly	printf '%s\n' "$OUT"	release-1.0/bin release-1.0/bin/app

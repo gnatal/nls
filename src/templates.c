@@ -28,6 +28,7 @@
 #define P  SLOT_JSON_PATH
 #define S  SLOT_QUOTED_STR
 #define N  SLOT_NUM
+#define A  SLOT_ARCHIVE
 
 #define GIF_FILTER "'fps={FPS:0|10},scale={RES:0|480:-1}:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse' -loop 0"
 
@@ -552,6 +553,32 @@ const CommandTemplate NL_TEMPLATES[] = {
       "delete empty directories in build/",
       KW(FIND_DEL, FIND_NOUNS, "empty", "blank"), REQ(0),
       FIND_ROOTS " -mindepth 1{KIND} -empty" FIND_TESTS " -delete", SHAPE_ANY },
+
+    /* =============================== tar ================================
+     * The lexer sorts paths into ARCHIVE (anything ending in a tar suffix),
+     * DEST ("into dist/"; "in dist" when extracting) and FILE (sources when
+     * creating, members when extracting or listing). Compression comes from
+     * the archive suffix or a format word ("with xz"), gzip by default; see
+     * the tar builders in expander.c. list comes before extract so a bare
+     * archive name ("backup.tar.gz") lists rather than unpacks. */
+    { TOOL_TAR, "tar_create", "Create a compressed archive from files or folders",
+      "compress src/ into backup.tar.gz excluding .git and node_modules",
+      KW("compress", "archive", "pack", "bundle", "tar", "backup", "back", "zip", "create",
+         "make", "package", "save"), REQ(F),
+      "tar{EXCLUDES} {TAR_FLAGS|c} {ARCHIVE}{MEMBERS}", SHAPE_ANY },
+
+    { TOOL_TAR, "tar_list", "List the contents of an archive",
+      "list contents of backup.tar.gz",
+      KW("list", "contents", "show", "view", "what", "what's", "whats", "inside", "see", "ls",
+         "peek", "inspect", "browse", "contains", "check"), REQ(A),
+      "tar{EXCLUDES} {TAR_FLAGS|t} {ARCHIVE}{MEMBERS}", SHAPE_ANY },
+
+    { TOOL_TAR, "tar_extract", "Extract an archive, optionally into a folder",
+      "extract archive.tar.xz into dist/",
+      KW("extract", "unpack", "untar", "unarchive", "decompress", "unzip", "uncompress",
+         "expand", "restore", "unbundle", "inflate"), REQ(A),
+      "tar{EXCLUDES} {TAR_FLAGS|x} {ARCHIVE}<< -C {DEST:0}>><< --strip-components={NUM:0}>>{MEMBERS}",
+      SHAPE_ANY },
 
 };
 

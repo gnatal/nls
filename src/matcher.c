@@ -200,7 +200,10 @@ void nl_match(const ParseContext *ctx, MatchResult *out, bool verbose) {
     /* grep: a pattern with no recognizable verb ("'TODO' in src/")
      * means a plain search; find: "c files in src" means a plain listing.
      * Either way: the tool's first template that can run. */
-    if (!out->best && (ctx->tool == TOOL_GREP || ctx->tool == TOOL_FIND)) {
+    /* tar: "src/ into backup.tar.gz" creates, a bare archive name lists;
+     * but never fall back when a verb was recognized ("extract src/"). */
+    if (!out->best && (ctx->tool == TOOL_GREP || ctx->tool == TOOL_FIND ||
+                       (ctx->tool == TOOL_TAR && !out->blocked))) {
         for (size_t i = 0; i < NL_TEMPLATE_COUNT; i++) {
             const CommandTemplate *tpl = &NL_TEMPLATES[i];
             SlotType missing[NL_MAX_REQUIRED];

@@ -1,7 +1,7 @@
 # nls — natural language shell
 
-`nls` turns plain-English requests into exact `ffmpeg`, `jq`, `grep` and
-`find` commands.
+`nls` turns plain-English requests into exact `ffmpeg`, `jq`, `grep`,
+`find` and `tar` commands.
 It works fully offline: no LLM, no network, no runtime dependencies. It is
 written in C11 using only the standard library, and every command template is
 compiled into the binary.
@@ -14,7 +14,7 @@ $ nls jq "get .name from users.json where .age > 30"
 jq 'map(select(.age > 30) | .name)' users.json
 ```
 
-Supported tools: **ffmpeg**, **jq**, **grep** and **find**
+Supported tools: **ffmpeg**, **jq**, **grep**, **find** and **tar**
 (see `natural_language_shell_architecture_plan.md`).
 
 ## Build
@@ -26,6 +26,7 @@ make test     # all tests (each execution suite skips if its tool is missing):
               #  - jq: run on tests/fixtures/*.json     tests/jq_exec_cases.tsv
               #  - grep: run on tests/fixtures/grep/    tests/grep_exec_cases.tsv
               #  - find: run on a generated temp tree   tests/find_exec_cases.tsv
+              #  - tar: create/extract/list in a temp tree  tests/tar_exec_cases.tsv
               #  - ffmpeg: run on generated media,
               #    verified with ffprobe          tests/ffmpeg_exec_cases.tsv
 make test-ffmpeg  # only the ffmpeg execution tests (~10 s)
@@ -91,6 +92,9 @@ Quote the whole prompt so your shell doesn't interpret `>`, `'` or `*`.
 | `find "files named 'readme*' ignoring case, top level only"` | `find . -maxdepth 1 -type f -iname 'readme*'` |
 | `find "10 largest files ignoring .git"` | `find . -path '*/.git' -prune -o -type f -exec du -h {} + \| sort -rh \| head -n 10` |
 | `find "delete all node_modules directories"` | `find . -mindepth 1 -type d -name node_modules -prune -exec rm -rf {} +` |
+| `tar "compress src/ into backup.tar.gz excluding .git and node_modules"` | `tar --exclude='.git' --exclude='node_modules' -czvf backup.tar.gz src/` |
+| `tar "extract archive.tar.xz into dist/ without the top-level folder"` | `tar -xJvf archive.tar.xz -C dist/ --strip-components=1` |
+| `tar "list contents of backup.tar.gz"` | `tar -tzvf backup.tar.gz` |
 
 Run `nls --list` to see all templates.
 
@@ -136,6 +140,13 @@ Run `nls --list` to see all templates.
      one awk per file), skipped directories
      (`ignoring build` → `-path '*/build' -prune -o … -print`) and depth
      (`top level` → `-maxdepth 1`).
+   - For tar, paths are sorted into the archive (anything ending in `.tar`,
+     `.tar.gz`/`.tgz`, `.tar.bz2`, `.tar.xz`, `.tar.zst`), the destination
+     (`into dist/`) and sources or members. Compression follows the archive
+     suffix or a format word (`with xz`, `as zstd`), gzip by default; with no
+     archive name one is derived (`compress src` → `src.tar.gz`). Also:
+     `excluding X and Y` → `--exclude`, `without the top-level folder` /
+     `strip 2` → `--strip-components`, `quietly` drops `-v`.
 3. **Expander** (`src/expander.c`): fills the winning template.
    - Placeholders: `{TYPE:i}`, `{TYPE:i|default}`, `{OUT_FILE|ext|suffix}` and
      `<< optional >>` groups.
@@ -156,6 +167,10 @@ Run `nls --list` to see all templates.
   much broader one. Deleting also needs at least one filter (`delete files`
   alone is refused), and directory deletes use `-mindepth 1` so the search
   root itself is never removed.
+- tar refuses conflicting or unplaceable requests (`backup.tar.gz with xz`,
+  a `.zip` name, two archives, a stray number) instead of guessing. A source
+  or derived archive name starting with `-` gets a `./` prefix so it can't be
+  read as an option.
 - JSON paths may only contain `[A-Za-z0-9_.[]?]`. A prompt like
   `get .a;rm in data.json` is rejected.
 

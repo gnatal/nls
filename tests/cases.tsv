@@ -172,3 +172,45 @@ find	top 3 biggest files	find . -type f -exec du -h {} + | sort -rh | head -n 3
 find	show 5 files	!ERR
 find	c files with 100 words	!ERR
 find	directories with less than 5 lines	!ERR
+# --- tar ---
+tar	compress src/ into backup.tar.gz excluding .git and node_modules	tar --exclude='.git' --exclude='node_modules' -czvf backup.tar.gz src/
+tar	extract archive.tar.xz into dist/	tar -xJvf archive.tar.xz -C dist/
+tar	list contents of backup.tar.gz	tar -tzvf backup.tar.gz
+tar	compress src	tar -czvf src.tar.gz src
+tar	compress src/ with xz	tar -cJvf src.tar.xz src/
+tar	tar up the src folder as zstd	tar --zstd -cvf src.tar.zst src
+tar	compress src and docs into release.tgz	tar -czvf release.tgz src docs
+tar	archive the current directory excluding node_modules	tar --exclude='node_modules' -czvf archive.tar.gz .
+tar	compress src into backup	tar -czvf backup.tar.gz src
+tar	save src as backup with bzip2	tar -cjvf backup.tar.bz2 src
+tar	compress src/ to ~/backups/	tar -czvf ~/backups/src.tar.gz src/
+tar	create backup.tar.bz2 from logs/	tar -cjvf backup.tar.bz2 logs/
+tar	archive logs/ as .tar	tar -cvf logs.tar logs/
+tar	make a backup of src excluding *.log and hidden files	tar --exclude='*.log' --exclude='.?*' -czvf src.tar.gz src
+tar	tar src/ --exclude node_modules	tar --exclude='node_modules' -czvf src.tar.gz src/
+tar	compress README.md and Makefile into docs.tar	tar -cvf docs.tar README.md Makefile
+tar	compress 'my files/' into "my backup.tar.gz"	tar -czvf 'my backup.tar.gz' 'my files/'
+tar	compress -rf	tar -czvf ./-rf.tar.gz ./-rf
+tar	src/ into backup.tar.gz	tar -czvf backup.tar.gz src/
+tar	compress src into backup.zip	!ERR
+tar	compress src/ into backup.tar.gz with xz	!ERR
+tar	compress src 5	!ERR
+tar	compress src strip 1	!ERR
+tar	extract backup.tar.gz	tar -xzvf backup.tar.gz
+tar	extract the archive backup.tar.gz	tar -xzvf backup.tar.gz
+tar	extract backup.tar.gz into the dist folder	tar -xzvf backup.tar.gz -C dist
+tar	extract backup.tar.gz in dist	tar -xzvf backup.tar.gz -C dist
+tar	extract backup.tar.gz here	tar -xzvf backup.tar.gz
+tar	extract src/main.c from backup.tar.gz	tar -xzvf backup.tar.gz src/main.c
+tar	extract release.tgz into dist without the top-level folder	tar -xzvf release.tgz -C dist --strip-components=1
+tar	extract release.tgz strip 2 components	tar -xzvf release.tgz --strip-components=2
+tar	unpack logs.tar.zst to /tmp/logs quietly	tar --zstd -xf logs.tar.zst -C /tmp/logs
+tar	untar data.tar	tar -xvf data.tar
+tar	decompress foo.tgz	tar -xzvf foo.tgz
+tar	extract backup.tar.gz into dist/ excluding *.txt	tar --exclude='*.txt' -xzvf backup.tar.gz -C dist/
+tar	extract src/	!ERR
+tar	extract a.tgz and b.tgz	!ERR
+tar	what's inside backup.tar.gz	tar -tzvf backup.tar.gz
+tar	backup.tar.gz	tar -tzvf backup.tar.gz
+tar	list backup.tar.gz quietly	tar -tzf backup.tar.gz
+tar	list backup.tar.gz into dist	!ERR

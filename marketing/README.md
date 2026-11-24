@@ -9,32 +9,35 @@ numbers change as templates are added.
 | `README.md` | Positioning, messaging, fact sheet (this file) |
 | `launch-posts.md` | Ready-to-edit posts: Show HN, Reddit, X/Bluesky thread, LinkedIn |
 | `demo.tape` | [VHS](https://github.com/charmbracelet/vhs) script that records the terminal demo GIF |
-| `make-demo-media.sh` | Generates royalty-free demo files (`talk.mp4`, `demo.mp4`, `users.json`, a small `src/` tree, `app.log`, plus old logs, big files, `node_modules/` and `.DS_Store` clutter for the find demo) |
+| `make-demo-media.sh` | Generates royalty-free demo files (`talk.mp4`, `demo.mp4`, `users.json`, a small `src/` tree, `app.log`, plus old logs, big files, `node_modules/` and `.DS_Store` clutter for the find demo, and `.git/`, `node_modules/` and a `release-1.0.tgz` for the tar demo) |
 
 ---
 
 ## One-liner
 
-> **Plain English in, the exact ffmpeg, jq, grep or find command out. Offline, instant, no AI.**
+> **Plain English in, the exact ffmpeg, jq, grep, find or tar command out. Offline, instant, no AI.**
 
 Alternatives:
 - "Stop googling ffmpeg flags."
 - "`nls` compiles English into shell commands."
-- "The ffmpeg/jq/grep/find cheat sheet you can talk to."
+- "The ffmpeg/jq/grep/find/tar cheat sheet you can talk to."
 - "Never type `-prune -o` again."
+- "Stop looking up which tar flag is xz."
 - "Search your code in plain English, without an AI reading it."
 
 ## Elevator pitch (30 seconds)
 
 Everyone has googled "ffmpeg cut video" more than once, jq's syntax hasn't
 gotten easier to remember, and nobody recalls whether "files that *don't*
-match" is `grep -L` or `grep -lv`. And `find` with `-prune` is something
-people copy from Stack Overflow every single time. `nls` lets you type what
-you want, like
+match" is `grep -L` or `grep -lv`. `find` with `-prune` is something
+people copy from Stack Overflow every single time, and `tar` is the classic
+"which letters, in which order?" command. `nls` lets you type what you want,
+like
 `nls ffmpeg "extract the first 10 seconds of talk.mp4 into intro.mp4"`,
-`nls grep "which python files contain TODO, ignoring case"` or
-`nls find "files larger than 5MB ignoring node_modules"`. You get back the
-exact command, ready to run.
+`nls grep "which python files contain TODO, ignoring case"`,
+`nls find "files larger than 5MB ignoring node_modules"` or
+`nls tar "extract release.tgz into dist/ without the top-level folder"`. You
+get back the exact command, ready to run.
 
 It isn't a chatbot. There's no API key, no network, and no model. A tiny C
 program matches your words against a built-in library of command templates.
@@ -140,6 +143,48 @@ The find examples show the traps people fall into by hand:
 - **Nothing gets dropped**: if a template can't express part of the request,
   `nls` refuses instead of running a broader command.
 
+tar, run in the same demo folder:
+
+```console
+$ nls -x -y tar "back up src/ into backup.tgz, skipping .git, node_modules and .DS_Store"
+→ tar --exclude='.git' --exclude='node_modules' --exclude='.DS_Store' -czvf backup.tgz src/
+a src
+a src/worker.py
+a src/server.py
+a src/README.md
+a src/app.js
+
+$ nls -x -y tar "list contents of backup.tgz quietly"
+→ tar -tzf backup.tgz
+src/
+src/worker.py
+...
+
+$ nls -x -y tar "extract release-1.0.tgz into dist/ without the top-level folder"
+→ tar -xzvf release-1.0.tgz -C dist/ --strip-components=1
+x bin/
+x README.md
+x bin/app
+
+$ nls tar "compress src/ into backup.tar.gz with xz"
+nls: 'backup.tar.gz' is a gzip archive, but xz was asked for (tar_create)
+```
+
+The tar examples show the traps people fall into by hand:
+- **`-f` goes last.** `tar -cfz backup.tar.gz src/` creates an archive named
+  `z`, because `-f` takes the next thing as the file name. `nls` always ends
+  the cluster with `f`.
+- **The compression letter** (`z` gzip, `j` bzip2, `J` xz, `--zstd`) comes
+  from the archive name, and a mismatch is refused rather than producing a
+  `.tar.gz` that is really xz. No name given? `compress src` makes
+  `src.tar.gz`.
+- **Excludes are quoted.** Type `--exclude=*.log` unquoted in zsh (the macOS
+  default shell) and the command never runs: `no matches found`.
+- **`--strip-components`**: "without the top-level folder" unpacks
+  `release-1.0/bin/app` as `dist/bin/app`.
+- **A bare archive name lists, never extracts**, so `nls tar "backup.tar.gz"`
+  can't overwrite anything.
+
 ## Who it's for
 
 | Audience | Pain | Message |
@@ -147,8 +192,9 @@ The find examples show the traps people fall into by hand:
 | Developers who use ffmpeg/jq a few times a month | Forget the syntax every time | "Never look up ffmpeg flags again." |
 | Anyone searching code or logs | `-l` vs `-L`, `--include` globs, context flags | "Ask for 'python files that don't mention TODO' and get the right grep." |
 | Anyone cleaning up disks or repos | `-prune` syntax, `+`/`-` signs, fear of `-delete` | "Find what's eating your disk, and delete it without the scary part." |
+| Anyone shipping releases or making backups | tar flag letters and order, excludes, `--strip-components` | "Say what goes in the archive; get the tar line right the first time." |
 | People who distrust AI shell tools | Hallucinated flags, data sent to the cloud, API cost | "Deterministic. Offline. Nothing leaves your machine." |
-| C / systems programmers | Bloat | "120 KB, links only the system C library, about 3,200 lines of C11." |
+| C / systems programmers | Bloat | "135 KB, links only the system C library, about 3,700 lines of C11." |
 | Content creators, podcasters | Need cuts, GIFs, audio extraction | "Cut, compress, GIF, extract audio in one sentence." |
 
 ## Differentiators (vs. AI command generators)
@@ -160,7 +206,7 @@ The find examples show the traps people fall into by hand:
 | Latency | ~2 ms | Typically seconds |
 | Your file names and data | Never leave the machine | Sent to a provider (unless self-hosted) |
 | Invents flags that don't exist | Can't: every command comes from a tested template | Possible |
-| Coverage | Limited to its templates (ffmpeg, jq, grep, find for now) | Anything |
+| Coverage | Limited to its templates (ffmpeg, jq, grep, find, tar for now) | Anything |
 
 Be honest about the last row. "It does fewer things, but it gets them right"
 is a stronger pitch than pretending it does everything.
@@ -169,16 +215,16 @@ is a stronger pitch than pretending it does everything.
 
 | Claim | Value | How to re-check |
 |---|---|---|
-| Binary size | 120 KB | `make && ls -l nls` |
+| Binary size | 135 KB | `make && ls -l nls` |
 | Dependencies | System C library only | `otool -L nls` (macOS) / `ldd nls` (Linux) |
-| Source size | ~3,200 lines of C11 | `wc -l src/*` |
-| Speed | ~1.6 ms per call, including process start | `time` a loop of 1,000 runs |
-| Templates | 93 (30 ffmpeg, 47 jq, 9 grep, 7 find) | `nls --list \| grep -c '^[a-z]*_'` |
-| Tests | 313 (171 command-text, 59 run with real jq, 16 run with real grep, 29 run with real find on a generated tree, 38 run with real ffmpeg + ffprobe) | `make test` |
-| Safety | Prints only, unless `-x`; `-x` asks first; file names and strings are shell-quoted; jq strings go through `--arg`; grep patterns go through `-e`; find refuses unfiltered deletes and anything it can't fully express | `README.md` → Safety |
+| Source size | ~3,700 lines of C11 | `wc -l src/*` |
+| Speed | ~1.8 ms per call, including process start | `time` a loop of 1,000 runs |
+| Templates | 96 (30 ffmpeg, 47 jq, 9 grep, 7 find, 3 tar) | `nls --list \| grep -c '^[a-z]*_'` |
+| Tests | 373 (212 command-text, 59 run with real jq, 16 run with real grep, 29 run with real find on a generated tree, 19 run with real tar creating, listing and extracting archives, 38 run with real ffmpeg + ffprobe) | `make test` |
+| Safety | Prints only, unless `-x`; `-x` asks first; file names and strings are shell-quoted; jq strings go through `--arg`; grep patterns go through `-e`; find refuses unfiltered deletes and anything it can't fully express; tar refuses mismatched compression, non-tar names and stray values, and a bare archive name only lists | `README.md` → Safety |
 
 Wording rules:
-- Say "about 2 ms", not "sub-millisecond". The 1.6 ms includes starting the
+- Say "about 2 ms", not "sub-millisecond". The 1.8 ms includes starting the
   process.
 - Say "no AI / no LLM", not "no machine learning hype". Keep it factual.
 - Don't claim Windows support yet. The quoting is POSIX-only.
@@ -190,6 +236,12 @@ Wording rules:
   -mindepth -exec -delete`) also exists in GNU find.
 - The line-count filter runs one awk per file. Don't call it fast on huge
   trees.
+- tar: tested with macOS's bsdtar (libarchive 3.7). The options used (`-c -x
+  -t -z -j -J -v -f -C --zstd --exclude --strip-components`) also exist in
+  GNU tar, but GNU tar hasn't run the suite yet. `--zstd` needs the `zstd`
+  program installed.
+- Extracting "into dist/" uses `-C dist/`, which fails if the folder doesn't
+  exist yet. Don't demo it on a missing folder.
 
 ## Before launching: checklist
 
@@ -203,4 +255,5 @@ Wording rules:
 - [ ] Run `make test` on Linux (GNU grep and find) before claiming Linux support.
 - [ ] Have 3–5 "what's next" items ready (grep `--exclude-dir` and piped
       input, jq AND conditions, find "modified after 2026-01-01" and
-      "run X on each file", tar and git next). Launch threads always ask.
+      "run X on each file", tar creating the destination folder and
+      appending to archives, git next). Launch threads always ask.

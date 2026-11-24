@@ -23,6 +23,7 @@ typedef enum {
     TOOL_JQ,
     TOOL_GREP,
     TOOL_FIND,
+    TOOL_TAR,
     TOOL_COUNT
 } ToolId;
 
@@ -41,8 +42,12 @@ typedef enum {
                         grep pattern after "for"/"containing"/...              */
     SLOT_JSON_PATH,  /* .users[].email, .status                      (jq only)      */
     SLOT_SIZE,       /* find: "larger than 100MB" -> "+100M", "under 1k" -> "-1024c" */
-    SLOT_EXCLUDE,    /* find: a directory / pattern to prune ("ignoring build")      */
+    SLOT_EXCLUDE,    /* find: a directory / pattern to prune ("ignoring build");
+                        tar: an --exclude pattern                                  */
     SLOT_LINES,      /* find: "less than 100 lines" -> "< 100" (awk NR comparison)   */
+    SLOT_ARCHIVE,    /* tar: a path ending in .tar, .tar.gz, .tgz, .tar.xz, ...       */
+    SLOT_DEST,       /* tar: "into dist/" -> extraction folder, or the archive name
+                        when creating ("compress src into backup")                 */
     SLOT_TYPE_COUNT
 } SlotType;
 
@@ -88,11 +93,11 @@ typedef struct {
     uint8_t cond_paths;                      /* jq: paths used as conditions/keys */
     char input_shape;                        /* jq: '[' or '{' if FILE:0 was peeked, else 0 */
     bool wants_count;                        /* jq: "how many", "count", "number of" */
-    char flags[8];                           /* grep: modifier letters i w v F; find: i */
+    char flags[8];                           /* grep: i w v F; find: i; tar: q (quiet) */
     char find_kind;                          /* find: 'f', 'd', 'l', or 'a' (any type) */
     bool find_kind_set;                      /* find: the user named a file type     */
     char find_depth[8];                      /* find: -maxdepth value, "" if none    */
-    const char *find_stray;                  /* find: a number nls couldn't place    */
+    const char *stray;                       /* find/tar: a number nls couldn't place */
     bool overflow;                           /* too many tokens/slots or arena full */
 } ParseContext;
 
@@ -116,6 +121,8 @@ ToolId nl_tool_from_name(const char *name);
 const char *nl_tool_name(ToolId tool);
 const char *nl_slot_name(SlotType type);
 const char *nl_slot_hint(SlotType type);
+/* tar: 'z' gzip, 'j' bzip2, 'J' xz, 'Z' zstd, '-' plain .tar, 0 if not a tar name */
+char nl_tar_compression(const char *name, bool need_base);
 /* `json` (may be NULL) lets bare words like "emails" resolve to fields (.email) */
 bool nl_lex(ParseContext *ctx, ToolId tool, const char *input, const JsonInfo *json);
 const char *nl_find_slot(const ParseContext *ctx, SlotType type, int index);

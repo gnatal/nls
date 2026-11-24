@@ -10,12 +10,13 @@ removed.
 
 **Title** (80 chars max, no hype words):
 
-> Show HN: nls – English to ffmpeg/jq/grep/find commands, offline, no LLM
+> Show HN: nls – English to ffmpeg/jq/grep/find/tar commands, offline, no LLM
 
 **Body:**
 
 > I keep forgetting ffmpeg flags, jq syntax, which grep flag lists the
-> files that *don't* match, and how find's `-prune` works. I didn't want an AI tool
+> files that *don't* match, how find's `-prune` works, and which tar letter
+> means xz. I didn't want an AI tool
 > that sends my file names to an API and sometimes invents flags. So I built
 > `nls`, a small C11 program that turns plain English into the exact command:
 >
@@ -31,8 +32,11 @@ removed.
 >     $ nls find "files larger than 5MB ignoring node_modules"
 >     find . -path '*/node_modules' -prune -o -type f -size +5M -print
 >
+>     $ nls tar "extract release.tgz into dist/ without the top-level folder"
+>     tar -xzvf release.tgz -C dist/ --strip-components=1
+>
 > How it works: a lexer pulls out typed values (files, timestamps,
-> resolutions, sizes, ages, JSON paths). A scorer then picks the best of ~93 built-in
+> resolutions, sizes, ages, JSON paths, archive names). A scorer then picks the best of ~96 built-in
 > templates, and an expander fills it in with safe shell quoting. For jq it
 > peeks at the input file to learn its field names, which is why "emails"
 > becomes `.email`. No model, no network, so the same input always gives the
@@ -41,13 +45,15 @@ removed.
 > It only prints the command unless you pass `-x`, and even then it asks first.
 > For find it's stricter still: `delete files` with no filter is refused, and
 > if it can't express part of your request (say, "older than 30 days") it
-> refuses rather than running a broader delete.
+> refuses rather than running a broader delete. tar works the same way:
+> `backup.tar.gz with xz` is refused instead of writing an xz archive with a
+> gzip name, and a bare archive name only lists, never extracts.
 >
-> Limits: only ffmpeg, jq, grep and find so far, POSIX shells only, jq filters
-> can't combine conditions yet, and grep can't exclude directories yet. The
-> test suite runs the generated commands against real ffmpeg, jq, grep and
-> find (deletes included, on a throwaway tree), and checks ffmpeg's output
-> with ffprobe.
+> Limits: only ffmpeg, jq, grep, find and tar so far, POSIX shells only, jq
+> filters can't combine conditions yet, and grep can't exclude directories
+> yet. The test suite runs the generated commands against real ffmpeg, jq,
+> grep, find and tar (deletes and extractions included, on a throwaway tree),
+> and checks ffmpeg's output with ffprobe.
 >
 > I'd love to hear which commands you'd want it to know. <repo-url>
 
@@ -60,7 +66,7 @@ first 2 hours. Don't ask for upvotes.
 
 **Title:**
 
-> I made a tiny offline tool that turns English into ffmpeg/jq/grep/find commands (no AI, ~2 ms)
+> I made a tiny offline tool that turns English into ffmpeg/jq/grep/find/tar commands (no AI, ~2 ms)
 
 **Body:**
 
@@ -71,8 +77,11 @@ first 2 hours. Don't ask for upvotes.
 > `grep -rLE -e license src/`. And `nls find "delete all node_modules
 > directories"` prints
 > `find . -mindepth 1 -type d -name node_modules -prune -exec rm -rf {} +`.
+> And `nls tar "compress src/ into backup.tar.gz excluding .git and
+> node_modules"` prints
+> `tar --exclude='.git' --exclude='node_modules' -czvf backup.tar.gz src/`.
 >
-> It's 120 KB of C with no dependencies. There's no LLM: it matches your words
+> It's 135 KB of C with no dependencies. There's no LLM: it matches your words
 > against a set of tested templates, so it can't make up flags. It prints by
 > default; `-x` runs the command after asking you.
 >
@@ -90,7 +99,7 @@ path". Ask for code review.
 ## X / Bluesky thread
 
 > 1/ I got tired of googling ffmpeg flags, so I built `nls`: plain English in,
-> exact command out. Offline. No AI. 100 KB. 🧵
+> exact command out. Offline. No AI. 135 KB. 🧵
 > <demo.gif>
 >
 > 2/ `nls ffmpeg "extract from talk.mp4 the first 10 seconds into intro.mp4"`
@@ -110,11 +119,16 @@ path". Ask for code review.
 > → `find . -path '*/node_modules' -prune -o -type f -size +5M -print`
 > Deletes with no filter are refused, so "delete files" can't wipe a folder.
 >
-> 6/ Why no LLM? Same input always gives the same output, about 2 ms, nothing
-> leaves your machine, and it can't invent flags. Every command comes from a
-> template that's tested against real ffmpeg, jq, grep and find.
+> 6/ And tar, without the "which letter is xz?" moment:
+> `nls tar "extract release.tgz into dist/ without the top-level folder"`
+> → `tar -xzvf release.tgz -C dist/ --strip-components=1`
+> The compression comes from the file name, and `-f` always goes last.
 >
-> 7/ It prints by default. `-x` runs it after asking. Free and open source:
+> 7/ Why no LLM? Same input always gives the same output, about 2 ms, nothing
+> leaves your machine, and it can't invent flags. Every command comes from a
+> template that's tested against real ffmpeg, jq, grep, find and tar.
+>
+> 8/ It prints by default. `-x` runs it after asking. Free and open source:
 > <repo-url>
 
 ---
@@ -125,19 +139,20 @@ path". Ask for code review.
 >
 > You type `nls ffmpeg "extract from talk.mp4 the first 10 seconds into
 > intro.mp4"` and get `ffmpeg -i talk.mp4 -t 10 -c copy intro.mp4`. It does
-> the same for jq, grep and find: `nls grep "which python files contain TODO"`
-> gives `grep -rlE --include='*.py' -e TODO .`, and
+> the same for jq, grep, find and tar: `nls grep "which python files contain
+> TODO"` gives `grep -rlE --include='*.py' -e TODO .`,
 > `nls find "log files older than 30 days"` gives
-> `find . -type f -name '*.log' -mtime +30`.
+> `find . -type f -name '*.log' -mtime +30`, and
+> `nls tar "list contents of backup.tar.gz"` gives `tar -tzvf backup.tar.gz`.
 >
 > The interesting part is what it *doesn't* use: no LLM, no API, no network.
-> It's about 3,200 lines of C that compile English against a library of
+> It's about 3,700 lines of C that compile English against a library of
 > tested command templates. That makes it deterministic and fast (~2 ms), and
 > private by default.
 >
 > A few things I learned building it:
 > • Testing generated commands as text wasn't enough. Running them against
->   real ffmpeg, jq and grep found bugs that looked correct on paper.
+>   real ffmpeg, jq, grep, find and tar found bugs that looked correct on paper.
 > • "Does fewer things, but gets them right" is a real design choice next
 >   to AI tools.
 > • Small UX details matter most. "from 1 to 3 seconds" has to mean the

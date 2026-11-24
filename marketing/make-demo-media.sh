@@ -78,5 +78,24 @@ printf 'module.exports = s => s;\n' > "$OUT/node_modules/left-pad/index.js"
 printf 'x' > "$OUT/.DS_Store"
 printf 'x' > "$OUT/src/.DS_Store"
 
+# tar demo: src/ gets the usual things you don't want in a backup (.git,
+# node_modules), and a release tarball wraps everything in a top-level
+# folder, the classic case for --strip-components. dist/ must exist for -C.
+mkdir -p "$OUT/src/.git" "$OUT/src/node_modules/left-pad"
+printf 'ref: refs/heads/main\n' > "$OUT/src/.git/HEAD"
+printf 'module.exports = s => s;\n' > "$OUT/src/node_modules/left-pad/index.js"
+STAGE=$(mktemp -d "${TMPDIR:-/tmp}/nls-demo.XXXXXX")
+mkdir -p "$STAGE/release-1.0/bin"
+printf '#!/bin/sh\necho "demo app 1.0"\n' > "$STAGE/release-1.0/bin/app"
+printf '# demo app 1.0\n' > "$STAGE/release-1.0/README.md"
+chmod +x "$STAGE/release-1.0/bin/app"
+# COPYFILE_DISABLE: keep macOS tar from adding ._ AppleDouble files
+(cd "$STAGE" && COPYFILE_DISABLE=1 tar -czf - release-1.0) > "$OUT/release-1.0.tgz"
+rm -rf "$STAGE"
+# reset what a previous recording left behind
+rm -f "$OUT/backup.tar.gz" "$OUT/backup.tgz" "$OUT/dist/README.md" "$OUT/dist/bin/app"
+rmdir "$OUT/dist/bin" 2>/dev/null || true
+mkdir -p "$OUT/dist"
+
 echo "demo files in $OUT:"
 ls -1 "$OUT"

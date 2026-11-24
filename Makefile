@@ -18,6 +18,7 @@ test: nls
 	sh tests/run_jq_exec.sh ./nls
 	sh tests/run_grep_exec.sh ./nls
 	sh tests/run_find_exec.sh ./nls
+	sh tests/run_tar_exec.sh ./nls
 	sh tests/run_ffmpeg_exec.sh ./nls
 
 test-ffmpeg: nls
