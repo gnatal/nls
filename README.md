@@ -1,7 +1,7 @@
 # nls — natural language shell
 
-`nls` turns plain-English requests into exact `ffmpeg`, `jq` and `grep`
-commands.
+`nls` turns plain-English requests into exact `ffmpeg`, `jq`, `grep` and
+`find` commands.
 It works fully offline: no LLM, no network, no runtime dependencies. It is
 written in C11 using only the standard library, and every command template is
 compiled into the binary.
@@ -14,7 +14,7 @@ $ nls jq "get .name from users.json where .age > 30"
 jq 'map(select(.age > 30) | .name)' users.json
 ```
 
-Supported tools: **ffmpeg**, **jq** and **grep**
+Supported tools: **ffmpeg**, **jq**, **grep** and **find**
 (see `natural_language_shell_architecture_plan.md`).
 
 ## Build
@@ -25,6 +25,7 @@ make test     # all tests (each execution suite skips if its tool is missing):
               #  - command-string goldens        tests/cases.tsv
               #  - jq: run on tests/fixtures/*.json     tests/jq_exec_cases.tsv
               #  - grep: run on tests/fixtures/grep/    tests/grep_exec_cases.tsv
+              #  - find: run on a generated temp tree   tests/find_exec_cases.tsv
               #  - ffmpeg: run on generated media,
               #    verified with ffprobe          tests/ffmpeg_exec_cases.tsv
 make test-ffmpeg  # only the ffmpeg execution tests (~10 s)
@@ -85,6 +86,11 @@ Quote the whole prompt so your shell doesn't interpret `>`, `'` or `*`.
 | `grep "list files not containing 'license' in src/"` | `grep -rLE -e license src/` |
 | `grep "find ERROR in app.log ignoring case with 3 lines of context"` | `grep -nEi -C 3 -e ERROR app.log` |
 | `grep "how many times does TODO appear in src/"` | `grep -rhoE -e TODO src/ \| wc -l` |
+| `find "files larger than 100MB modified in last 7 days"` | `find . -type f -size +100M -mtime -7` |
+| `find "c files in src ignoring build"` | `find src -path '*/build' -prune -o -type f -name '*.c' -print` |
+| `find "files named 'readme*' ignoring case, top level only"` | `find . -maxdepth 1 -type f -iname 'readme*'` |
+| `find "10 largest files ignoring .git"` | `find . -path '*/.git' -prune -o -type f -exec du -h {} + \| sort -rh \| head -n 10` |
+| `find "delete all node_modules directories"` | `find . -mindepth 1 -type d -name node_modules -prune -exec rm -rf {} +` |
 
 Run `nls --list` to see all templates.
 
@@ -92,7 +98,7 @@ Run `nls --list` to see all templates.
 
 1. **Lexer** (`src/lexer.c`): extracts typed slots and keeps the remaining
    words as intent tokens. The slot types are `FILE`, `EXT`, `TIME`, `RES`,
-   `BITRATE`, `FPS`, `FACTOR`, `NUM`, `QUOTED_STR` and `JSON_PATH`.
+   `BITRATE`, `FPS`, `FACTOR`, `NUM`, `QUOTED_STR`, `JSON_PATH`, `SIZE` and `EXCLUDE`.
    - It uses a little context: `10 seconds` → TIME `10`, `width 640` → RES
      `640:-2`, `at 15 fps` → FPS `15`.
    - In jq mode, a bare word after a comparator becomes a string
@@ -122,6 +128,14 @@ Run `nls --list` to see all templates.
      be quoted or bare after words like "for", "containing" or "find";
      "python files" / `*.py` become `--include`, and `-r` is dropped when
      only regular files are searched.
+   - For find, every filter is optional and they combine: file types
+     (`c files`, `*.py`), names (`named 'x*'`, `.DS_Store`), sizes
+     (`larger than 100MB` → `-size +100M`), ages (`in the last 2 hours` →
+     `-mmin -120`, `older than 30 days` → `-mtime +30`), line counts
+     (`less than 100 lines` → `-exec awk 'END { exit !(NR < 100) }' {} \;`,
+     one awk per file), skipped directories
+     (`ignoring build` → `-path '*/build' -prune -o … -print`) and depth
+     (`top level` → `-maxdepth 1`).
 3. **Expander** (`src/expander.c`): fills the winning template.
    - Placeholders: `{TYPE:i}`, `{TYPE:i|default}`, `{OUT_FILE|ext|suffix}` and
      `<< optional >>` groups.
@@ -137,6 +151,11 @@ Run `nls --list` to see all templates.
   `--arg`, never spliced into the jq program.
 - grep patterns are passed with `-e`, so a pattern starting with `-` is never
   read as an option.
+- find refuses a template that can't express everything you asked for, rather
+  than dropping it: a lost "older than 30 days" would turn a delete into a
+  much broader one. Deleting also needs at least one filter (`delete files`
+  alone is refused), and directory deletes use `-mindepth 1` so the search
+  root itself is never removed.
 - JSON paths may only contain `[A-Za-z0-9_.[]?]`. A prompt like
   `get .a;rm in data.json` is rejected.
 

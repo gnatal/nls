@@ -1,6 +1,6 @@
 # Terminal demo GIF, recorded with VHS: https://github.com/charmbracelet/vhs
 #   brew install vhs
-#   sh marketing/make-demo-media.sh      # creates marketing/demo/ (talk.mp4, users.json, src/, app.log)
+#   sh marketing/make-demo-media.sh      # creates marketing/demo/ (talk.mp4, users.json, src/, app.log, logs/, assets/, node_modules/)
 #   vhs marketing/demo.tape              # writes marketing/nls-demo.gif
 # Requires nls on PATH (make install).
 
@@ -54,6 +54,27 @@ Enter
 Sleep 2.5s
 
 Type `nls -x -y grep "find ERROR in app.log with 1 line of context"`
+Sleep 400ms
+Enter
+Sleep 3.5s
+
+# 5. find: ages, sizes, pruning, and the cleanup incantation nobody remembers
+Hide
+Type "clear"
+Enter
+Show
+
+Type `nls -x -y find "log files older than 30 days"`
+Sleep 400ms
+Enter
+Sleep 2.5s
+
+Type `nls -x -y find "files larger than 5MB ignoring node_modules"`
+Sleep 400ms
+Enter
+Sleep 3s
+
+Type `nls find "delete all node_modules directories"`
 Sleep 400ms
 Enter
 Sleep 3.5s

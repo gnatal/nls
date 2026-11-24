@@ -63,5 +63,20 @@ cat > "$OUT/app.log" <<'EOF'
 2026-11-23 09:05:43 INFO  rotating logs
 EOF
 
+# project clutter for the find demo: old logs, big files (one hidden inside
+# node_modules), a .DS_Store and an empty folder. Old dates are fixed in the
+# past so "older than 30 days" keeps working whenever the demo is recorded.
+mkdir -p "$OUT/logs" "$OUT/assets" "$OUT/node_modules/left-pad" "$OUT/tmp"
+printf 'archived\n' > "$OUT/logs/archive-2025-03.log"
+printf 'archived\n' > "$OUT/logs/archive-2025-06.log"
+printf 'current\n'  > "$OUT/logs/today.log"
+touch -t 202503010900 "$OUT/logs/archive-2025-03.log"
+touch -t 202506010900 "$OUT/logs/archive-2025-06.log"
+dd if=/dev/zero of="$OUT/assets/backup.tar" bs=1048576 count=8 2>/dev/null
+dd if=/dev/zero of="$OUT/node_modules/left-pad/cache.bin" bs=1048576 count=12 2>/dev/null
+printf 'module.exports = s => s;\n' > "$OUT/node_modules/left-pad/index.js"
+printf 'x' > "$OUT/.DS_Store"
+printf 'x' > "$OUT/src/.DS_Store"
+
 echo "demo files in $OUT:"
 ls -1 "$OUT"

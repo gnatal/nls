@@ -198,8 +198,9 @@ void nl_match(const ParseContext *ctx, MatchResult *out, bool verbose) {
     }
 
     /* grep: a pattern with no recognizable verb ("'TODO' in src/")
-     * means a plain search: the tool's first template that can run. */
-    if (!out->best && ctx->tool == TOOL_GREP) {
+     * means a plain search; find: "c files in src" means a plain listing.
+     * Either way: the tool's first template that can run. */
+    if (!out->best && (ctx->tool == TOOL_GREP || ctx->tool == TOOL_FIND)) {
         for (size_t i = 0; i < NL_TEMPLATE_COUNT; i++) {
             const CommandTemplate *tpl = &NL_TEMPLATES[i];
             SlotType missing[NL_MAX_REQUIRED];

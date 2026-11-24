@@ -499,6 +499,60 @@ const CommandTemplate NL_TEMPLATES[] = {
       KW(GREP_VERBS, "first", "max", "maximum", "limit", "stop", "top", "most", "up"), REQ(S),
       "grep {FLAGS|rnE|" GREP_MODS "} -m {NUM:0|1}" GREP_INCL GREP_PATS GREP_PATHS, SHAPE_ANY },
 
+    /* =============================== find ===============================
+     * All filters are optional: the lexer turns "c files", "named 'x*'",
+     * "larger than 100MB", "in the last 7 days", "ignoring build", "depth 2"
+     * into slots / ctx fields, and the find builders ({KIND} {NAMES} {DEPTH}
+     * {PRUNE} {PRINT}, see expander.c) place them. Every slot the user gave
+     * must be used, so a template that can't express one is refused instead
+     * of running a broader command.
+     * Every template carries the nouns (files, directories, links) so they
+     * tie, and find_files is listed first: a destructive template only wins
+     * when a delete verb is present. With no keyword at all ("c files in
+     * src") the first template, find_files, is used. */
+#define FIND_VERBS  "find", "list", "show", "search", "locate", "get", "print"
+#define FIND_NOUNS  "files", "directories", "links"
+#define FIND_DEL    "delete", "remove", "rm", "erase", "purge", "clean", "wipe"
+#define FIND_ROOTS  "find {FILE:0|.}<< {FILE:1}>><< {FILE:2}>>{DEPTH}"
+/* line counts: awk exits 0 when the comparison holds, so -exec is a test */
+#define FIND_TESTS  "{NAMES}<< -size {SIZE:0}>><< -size {SIZE:1}>><< {TIME:0}>><< {TIME:1}>>" \
+                    "<< -exec awk 'END { exit !(NR {LINES:0}) }' {} \\;>>"
+
+    { TOOL_FIND, "find_files", "Find files by name, type, size or age",
+      "c files in src ignoring build",
+      KW(FIND_VERBS, FIND_NOUNS, "where", "which", "first"), REQ(0),
+      FIND_ROOTS "{PRUNE}{KIND}" FIND_TESTS "{PRINT}<< | head -n {NUM:0}>>", SHAPE_ANY },
+
+    { TOOL_FIND, "find_empty", "Find empty files or directories",
+      "empty directories in .",
+      KW(FIND_VERBS, FIND_NOUNS, "empty", "blank"), REQ(0),
+      FIND_ROOTS "{PRUNE}{KIND} -empty" FIND_TESTS "{PRINT}", SHAPE_ANY },
+
+    { TOOL_FIND, "find_count", "Count matching files or directories",
+      "how many c files in src",
+      KW(FIND_VERBS, FIND_NOUNS, "count", "how", "many", "number", "total"), REQ(0),
+      FIND_ROOTS "{PRUNE}{KIND}" FIND_TESTS "{PRINT} | wc -l", SHAPE_ANY },
+
+    { TOOL_FIND, "find_largest", "List the N largest files (default 10)",
+      "10 largest files in ~ ignoring .git",
+      KW(FIND_VERBS, FIND_NOUNS, "largest", "biggest", "heaviest", "top", "sorted", "sort"), REQ(0),
+      FIND_ROOTS "{PRUNE} -type f" FIND_TESTS " -exec du -h {} + | sort -rh | head -n {NUM:0|10}", SHAPE_ANY },
+
+    { TOOL_FIND, "find_delete", "Delete matching files",
+      "delete .DS_Store files recursively",
+      KW(FIND_DEL, "files", "links"), REQ(0),
+      FIND_ROOTS " -type f" FIND_TESTS " -delete", SHAPE_ANY },
+
+    { TOOL_FIND, "find_delete_dirs", "Delete matching directories and their contents",
+      "delete all node_modules directories",
+      KW(FIND_DEL, "directories"), REQ(0),
+      FIND_ROOTS " -mindepth 1 -type d" FIND_TESTS " -prune -exec rm -rf {} +", SHAPE_ANY },
+
+    { TOOL_FIND, "find_delete_empty", "Delete empty files or directories",
+      "delete empty directories in build/",
+      KW(FIND_DEL, FIND_NOUNS, "empty", "blank"), REQ(0),
+      FIND_ROOTS " -mindepth 1{KIND} -empty" FIND_TESTS " -delete", SHAPE_ANY },
+
 };
 
 const size_t NL_TEMPLATE_COUNT = sizeof NL_TEMPLATES / sizeof NL_TEMPLATES[0];

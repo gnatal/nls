@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>nls: plain English to ffmpeg, jq, grep and find commands</title>
+<meta name="description" content="nls turns plain English into the exact ffmpeg, jq, grep or find command. Offline, about 2 ms, no AI. 120 KB of C11.">
+<meta property="og:title" content="nls: plain English in, the exact command out">
+<meta property="og:description" content="ffmpeg, jq, grep and find commands from plain English. Offline, deterministic, no LLM.">
+<meta property="og:image" content="https://gnatal.github.io/nls/nls-demo.gif">
+<meta property="og:url" content="https://gnatal.github.io/nls/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%2314161a'/><text x='6' y='22' font-family='monospace' font-size='16' font-weight='700' fill='%237ee2a8'>&gt;_</text></svg>">
+<style>
+  :root {
+    --bg: #0d0f12;
+    --bg-2: #14171c;
+    --panel: #181c22;
+    --line: #262b33;
+    --text: #e6e8eb;
+    --muted: #9aa3ae;
+    --dim: #6b7480;
+    --accent: #7ee2a8;
+    --accent-ink: #0b2417;
+    --prompt: #f2c46d;
+    --str: #9cc8ff;
+    --bad: #ff8f8f;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --radius: 12px;
+    --max: 1080px;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #fbfbf9;
+      --bg-2: #f2f2ee;
+      --panel: #ffffff;
+      --line: #e1e1db;
+      --text: #16181b;
+      --muted: #555c66;
+      --dim: #7d848e;
+      --accent: #0f8a4f;
+      --accent-ink: #ffffff;
+      --prompt: #a8660b;
+      --str: #1f5fb8;
+      --bad: #c22f2f;
+    }
+    /* terminals stay dark in both themes */
+    .term { --text: #e6e8eb; --muted: #9aa3ae; --dim: #6b7480; --accent: #7ee2a8; --prompt: #f2c46d; --str: #9cc8ff; --bad: #ff8f8f; --line: #262b33; }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 17px/1.6 var(--sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); text-underline-offset: 3px; }
+  code, kbd, pre { font-family: var(--mono); }
+  :not(pre) > code {
+    font-size: .88em;
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    padding: .08em .38em;
+    border-radius: 6px;
+  }
+  .wrap { max-width: var(--max); margin: 0 auto; padding: 0 24px; }
+
+  /* nav */
+  nav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 0;
+  }
+  .logo { font: 700 20px var(--mono); color: var(--text); text-decoration: none; letter-spacing: -.02em; }
+  .logo span { color: var(--accent); }
+  nav ul { list-style: none; display: flex; gap: 26px; margin: 0; padding: 0; }
+  nav ul a { color: var(--muted); text-decoration: none; font-size: 15px; }
+  nav ul a:hover { color: var(--text); }
+  @media (max-width: 640px) { nav ul li:not(:last-child) { display: none; } }
+
+  /* hero */
+  .hero { padding: 56px 0 40px; text-align: center; }
+  .eyebrow {
+    display: inline-flex; gap: 10px; flex-wrap: wrap; justify-content: center;
+    font: 13px var(--mono); color: var(--muted); margin-bottom: 26px;
+  }
+  .eyebrow span { border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; background: var(--bg-2); }
+  h1 {
+    font-size: clamp(38px, 6.4vw, 68px);
+    line-height: 1.05;
+    letter-spacing: -.035em;
+    margin: 0 auto 20px;
+    max-width: 15ch;
+    text-wrap: balance;
+  }
+  h1 em { font-style: normal; color: var(--accent); }
+  .lede { font-size: clamp(18px, 2.2vw, 21px); color: var(--muted); max-width: 40em; margin: 0 auto 34px; text-wrap: pretty; }
+  .cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    font: 600 16px var(--sans); text-decoration: none;
+    padding: 12px 22px; border-radius: 10px; border: 1px solid var(--line);
+    color: var(--text); background: var(--panel);
+  }
+  .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+  .btn:hover { filter: brightness(1.08); }
+
+  /* terminal */
+  .term {
+    background: #0a0c0f;
+    color: var(--text);
+    border: 1px solid #262b33;
+    border-radius: var(--radius);
+    box-shadow: 0 30px 80px -30px rgba(0,0,0,.55);
+    overflow: hidden;
+    text-align: left;
+  }
+  .term-bar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 16px; border-bottom: 1px solid #1d2128; background: #111419;
+  }
+  .term-bar i { width: 11px; height: 11px; border-radius: 50%; background: #2c313a; }
+  .term-bar b { margin-left: 10px; font: 500 12px var(--mono); color: #6b7480; }
+  .term pre {
+    margin: 0; padding: 22px 24px; overflow-x: auto;
+    font-size: 14.5px; line-height: 1.75; white-space: pre;
+  }
+  .p { color: var(--prompt); user-select: none; }
+  .s { color: var(--str); }
+  .o { color: var(--accent); }
+  .c { color: var(--dim); }
+  .e { color: var(--bad); }
+
+  .demo { margin: 56px auto 0; max-width: 880px; }
+  .demo img { display: block; width: 100%; height: auto; }
+
+  /* sections */
+  section { padding: 84px 0; }
+  section + section { border-top: 1px solid var(--line); }
+  .kicker { font: 600 13px var(--mono); color: var(--accent); text-transform: uppercase; letter-spacing: .1em; margin: 0 0 10px; }
+  h2 { font-size: clamp(28px, 3.6vw, 40px); letter-spacing: -.025em; line-height: 1.15; margin: 0 0 14px; text-wrap: balance; }
+  .sub { color: var(--muted); max-width: 44em; margin: 0 0 40px; text-wrap: pretty; }
+
+  /* tabs */
+  .tabs { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+  .tab {
+    font: 600 14px var(--mono); cursor: pointer;
+    padding: 8px 16px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--panel); color: var(--muted);
+  }
+  .tab[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+  .tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .panel[hidden] { display: none; }
+  .note { color: var(--muted); font-size: 15px; margin: 14px 2px 0; }
+
+  /* grids */
+  .grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 24px;
+  }
+  .card h3 { margin: 0 0 8px; font-size: 18px; letter-spacing: -.01em; }
+  .card p { margin: 0; color: var(--muted); font-size: 15.5px; }
+  .stat { font: 700 34px/1 var(--mono); letter-spacing: -.03em; margin-bottom: 10px; color: var(--text); }
+  .stat small { font-size: 16px; color: var(--muted); font-weight: 500; }
+
+  /* pipeline */
+  .pipe { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; counter-reset: step; }
+  @media (max-width: 800px) { .pipe { grid-template-columns: 1fr; } }
+  .pipe .card { position: relative; }
+  .pipe .card::before {
+    counter-increment: step; content: counter(step);
+    display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 8px;
+    background: var(--bg-2); border: 1px solid var(--line);
+    font: 700 14px var(--mono); color: var(--accent); margin-bottom: 14px;
+  }
+  .pipe code { font-size: 13px; }
+
+  /* table */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
+  table { border-collapse: collapse; width: 100%; font-size: 15.5px; min-width: 560px; }
+  th, td { text-align: left; padding: 14px 20px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  thead th { font: 600 13px var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: .06em; background: var(--bg-2); }
+  td:first-child { color: var(--muted); }
+  td.yes { color: var(--text); font-weight: 600; }
+
+  /* safety */
+  .checks { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .checks li {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 18px 20px 18px 50px; position: relative; color: var(--muted); font-size: 15.5px;
+  }
+  .checks li::before {
+    content: "✓"; position: absolute; left: 18px; top: 17px;
+    font: 700 16px var(--mono); color: var(--accent);
+  }
+  .checks strong { color: var(--text); font-weight: 600; }
+
+  /* install */
+  .install > *, .grid > *, .pipe > * { min-width: 0; }
+  .install { display: grid; grid-template-columns: 1.1fr 1fr; gap: 28px; align-items: start; }
+  @media (max-width: 860px) { .install { grid-template-columns: 1fr; } }
+  .copy {
+    float: right; font: 600 12px var(--mono); cursor: pointer;
+    background: #1b2027; color: #9aa3ae; border: 1px solid #2c313a; border-radius: 6px; padding: 4px 10px;
+  }
+  .copy:hover { color: #e6e8eb; }
+  .limits { color: var(--muted); font-size: 15.5px; }
+  .limits h3 { color: var(--text); font-size: 17px; margin: 0 0 10px; }
+  .limits ul { margin: 0 0 22px; padding-left: 20px; }
+  .limits li { margin-bottom: 6px; }
+
+  footer { border-top: 1px solid var(--line); padding: 40px 0 60px; color: var(--dim); font-size: 14px; }
+  footer .wrap { display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+  footer a { color: var(--muted); }
+</style>
+</head>
+<body>
+
+<header class="wrap">
+  <nav>
+    <a class="logo" href="#"><span>&gt;_</span> nls</a>
+    <ul>
+      <li><a href="#examples">Examples</a></li>
+      <li><a href="#how">How it works</a></li>
+      <li><a href="#safety">Safety</a></li>
+      <li><a href="https://github.com/gnatal/nls">GitHub</a></li>
+    </ul>
+  </nav>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <div class="eyebrow">
+      <span>offline</span><span>~2 ms</span><span>no AI</span><span>120 KB of C11</span>
+    </div>
+    <h1>Plain English in. <em>The exact command</em> out.</h1>
+    <p class="lede">
+      <code>nls</code> turns what you mean into the right <strong>ffmpeg</strong>,
+      <strong>jq</strong>, <strong>grep</strong> or <strong>find</strong> command.
+      You don't need to look up flags, and nothing is sent to a model.
+      Every command comes from a tested template.
+    </p>
+    <div class="cta">
+      <a class="btn primary" href="#install">Install</a>
+      <a class="btn" href="https://github.com/gnatal/nls">View on GitHub →</a>
+    </div>
+
+    <div class="term demo">
+      <div class="term-bar"><i></i><i></i><i></i><b>nls demo</b></div>
+      <img src="nls-demo.gif" alt="Terminal recording: nls turning English prompts into ffmpeg, jq, grep and find commands and running them" width="1300" height="620" loading="eager">
+    </div>
+  </div>
+
+  <section id="examples">
+    <div class="wrap">
+      <p class="kicker">Examples</p>
+      <h2>Stop googling the same flags</h2>
+      <p class="sub">This is real output from <code>nls</code> 0.1.0. Pick a tool.</p>
+
+      <div class="tabs" role="tablist" aria-label="Tool">
+        <button class="tab" role="tab" aria-selected="true"  aria-controls="t-ffmpeg" id="b-ffmpeg">ffmpeg</button>
+        <button class="tab" role="tab" aria-selected="false" aria-controls="t-jq"     id="b-jq"     tabindex="-1">jq</button>
+        <button class="tab" role="tab" aria-selected="false" aria-controls="t-grep"   id="b-grep"   tabindex="-1">grep</button>
+        <button class="tab" role="tab" aria-selected="false" aria-controls="t-find"   id="b-find"   tabindex="-1">find</button>
+      </div>
+
+      <div class="term panel" role="tabpanel" id="t-ffmpeg" aria-labelledby="b-ffmpeg">
+        <div class="term-bar"><i></i><i></i><i></i><b>ffmpeg</b></div>
+<pre><span class="p">$</span> nls ffmpeg <span class="s">"extract from talk.mp4 the first 10 seconds into intro.mp4"</span>
+<span class="o">ffmpeg -i talk.mp4 -t 10 -c copy intro.mp4</span>
+
+<span class="p">$</span> nls ffmpeg <span class="s">"make a gif from demo.mp4 between 2 and 5 seconds"</span>
+<span class="o">ffmpeg -ss 2 -to 5 -i demo.mp4 -vf 'fps=10,scale=480:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse' -loop 0 demo.gif</span>
+
+<span class="p">$</span> nls ffmpeg <span class="s">"extract audio from video.mp4 as mp3 at 320k"</span>
+<span class="o">ffmpeg -i video.mp4 -vn -c:a libmp3lame -b:a 320k video.mp3</span></pre>
+      </div>
+
+      <div class="term panel" role="tabpanel" id="t-jq" aria-labelledby="b-jq" hidden>
+        <div class="term-bar"><i></i><i></i><i></i><b>jq</b></div>
+<pre><span class="p">$</span> nls jq <span class="s">"in users.json how many users have emails"</span>
+<span class="o">jq 'map(select(.email != null)) | length' users.json</span>
+
+<span class="p">$</span> nls jq <span class="s">"get names from users.json where age > 30"</span>
+<span class="o">jq 'map(select(.age > 30) | .name)' users.json</span>
+
+<span class="p">$</span> nls jq <span class="s">"count users.json by .status"</span>
+<span class="o">jq 'group_by(.status) | map({key: (.[0].status | tostring), count: length})' users.json</span></pre>
+      </div>
+
+      <div class="term panel" role="tabpanel" id="t-grep" aria-labelledby="b-grep" hidden>
+        <div class="term-bar"><i></i><i></i><i></i><b>grep</b></div>
+<pre><span class="p">$</span> nls grep <span class="s">"which python files contain TODO, ignoring case"</span>
+<span class="o">grep -rlEi --include='*.py' -e TODO .</span>
+
+<span class="p">$</span> nls grep <span class="s">"list files not containing 'license' in src/"</span>
+<span class="o">grep -rLE -e license src/</span>
+
+<span class="p">$</span> nls grep <span class="s">"find TODO or FIXME in the src folder"</span>
+<span class="o">grep -rnE -e TODO -e FIXME src</span></pre>
+      </div>
+
+      <div class="term panel" role="tabpanel" id="t-find" aria-labelledby="b-find" hidden>
+        <div class="term-bar"><i></i><i></i><i></i><b>find</b></div>
+<pre><span class="p">$</span> nls find <span class="s">"files larger than 5MB ignoring node_modules"</span>
+<span class="o">find . -path '*/node_modules' -prune -o -type f -size +5M -print</span>
+
+<span class="p">$</span> nls find <span class="s">"log files older than 30 days"</span>
+<span class="o">find . -type f -name '*.log' -mtime +30</span>
+
+<span class="p">$</span> nls find <span class="s">"delete all node_modules directories"</span>
+<span class="o">find . -mindepth 1 -type d -name node_modules -prune -exec rm -rf {} +</span>
+
+<span class="p">$</span> nls find <span class="s">"delete files"</span>
+<span class="e">nls: refusing to delete everything; say which files (e.g. '*.log', named 'core', older than 30 days)</span></pre>
+      </div>
+
+      <p class="note" id="note">It picks <code>-c copy</code> when it can, so trimming a clip doesn't re-encode it.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <p class="kicker">Why no LLM</p>
+      <h2>It does fewer things, but it gets them right</h2>
+      <p class="sub">
+        AI command generators can handle anything, but they need a network, take seconds, and sometimes invent flags.
+        <code>nls</code> covers four tools and treats each one carefully.
+      </p>
+      <div class="grid">
+        <div class="card"><div class="stat">~2<small> ms</small></div><h3>Instant</h3><p>That includes starting the process. You won't wait on a spinner.</p></div>
+        <div class="card"><div class="stat">0<small> requests</small></div><h3>Private</h3><p>Your file names and data never leave your machine. It needs no API key and works on a plane.</p></div>
+        <div class="card"><div class="stat">1:1</div><h3>Deterministic</h3><p>The same input always gives the same output, so you can script it and trust it.</p></div>
+        <div class="card"><div class="stat">313<small> tests</small></div><h3>Tested for real</h3><p>The tests run the generated commands against real ffmpeg, jq, grep and find, and check ffmpeg's output with ffprobe.</p></div>
+      </div>
+
+      <div class="table-wrap" style="margin-top:36px">
+        <table>
+          <thead><tr><th></th><th>nls</th><th>LLM-based CLI helpers</th></tr></thead>
+          <tbody>
+            <tr><td>Network / API key</td><td class="yes">None</td><td>Usually required</td></tr>
+            <tr><td>Same input, same output</td><td class="yes">Always</td><td>Not guaranteed</td></tr>
+            <tr><td>Latency</td><td class="yes">~2 ms</td><td>Typically seconds</td></tr>
+            <tr><td>Your files and data</td><td class="yes">Stay on your machine</td><td>Sent to a provider, unless self-hosted</td></tr>
+            <tr><td>Invented flags</td><td class="yes">Not possible: every command is a tested template</td><td>Possible</td></tr>
+            <tr><td>Coverage</td><td>ffmpeg, jq, grep, find (93 templates)</td><td class="yes">Anything</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="how">
+    <div class="wrap">
+      <p class="kicker">How it works</p>
+      <h2>A small compiler from English to shell</h2>
+      <p class="sub">There are no models or weights, just about 3,200 lines of C11 using the standard library and no other dependencies.</p>
+      <div class="pipe">
+        <div class="card">
+          <h3>Lexer</h3>
+          <p>It pulls typed values out of your sentence: files, timestamps, resolutions, sizes, ages and JSON paths. <code>10 seconds</code> becomes TIME <code>10</code>, and <code>width 640</code> becomes RES <code>640:-2</code>.</p>
+        </div>
+        <div class="card">
+          <h3>Matcher</h3>
+          <p>It scores the tool's templates by keyword overlap. For jq it peeks at your file's field names, so "emails" becomes <code>.email</code>. If a template needs a value you didn't give, <code>nls</code> tells you instead of guessing.</p>
+        </div>
+        <div class="card">
+          <h3>Expander</h3>
+          <p>It fills in the winning template with safe POSIX quoting. Strings go through <code>--arg</code> or <code>-e</code> and are never spliced into code.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="safety">
+    <div class="wrap">
+      <p class="kicker">Safety</p>
+      <h2>It would rather refuse than guess</h2>
+      <p class="sub">Cleanup commands are where generated shell hurts most, so <code>nls</code> is strict by default.</p>
+      <ul class="checks">
+        <li><strong>Prints only.</strong> Nothing runs unless you pass <code>-x</code>, and <code>-x</code> asks before it runs.</li>
+        <li><strong>No unfiltered deletes.</strong> <code>delete files</code> on its own is refused. Directory deletes use <code>-mindepth 1</code>, so the search root is never removed.</li>
+        <li><strong>No silent drops.</strong> If a template can't express part of your request, such as "older than 30 days", <code>nls</code> refuses rather than run a broader delete.</li>
+        <li><strong>Quoted everywhere.</strong> File names and strings are single-quoted, and JSON paths are checked against a strict character set.</li>
+        <li><strong>No flag injection.</strong> grep patterns go through <code>-e</code>, so searching for <code>-v</code> can't turn into an option.</li>
+        <li><strong>Avoids the classic traps.</strong> It writes <code>-L</code> instead of <code>-lv</code>, ends <code>-prune -o</code> with <code>-print</code>, and never combines <code>-delete</code> with <code>-prune</code>.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="install">
+    <div class="wrap install">
+      <div>
+        <p class="kicker">Install</p>
+        <h2>Ready in about ten seconds</h2>
+        <p class="sub" style="margin-bottom:24px">You need a C compiler and <code>make</code>. It installs to <code>~/.local/bin</code> without sudo.</p>
+        <div class="term">
+          <div class="term-bar"><i></i><i></i><i></i><b>install</b><span style="flex:1"></span><button class="copy" data-copy="git clone https://github.com/gnatal/nls.git && cd nls && make && make install">copy</button></div>
+<pre><span class="p">$</span> git clone https://github.com/gnatal/nls.git
+<span class="p">$</span> cd nls && make && make install
+<span class="c"># then</span>
+<span class="p">$</span> nls --list          <span class="c"># every template, with example prompts</span>
+<span class="p">$</span> nls -x grep <span class="s">"find TODO in src"</span>   <span class="c"># run it (asks first)</span></pre>
+        </div>
+      </div>
+      <div class="limits">
+        <h3>What it doesn't do (yet)</h3>
+        <ul>
+          <li>It only knows ffmpeg, jq, grep and find so far.</li>
+          <li>It supports POSIX shells only; quoting isn't Windows-safe.</li>
+          <li>jq filters can't combine conditions yet.</li>
+          <li>grep can't exclude directories yet.</li>
+          <li>It's tested on macOS with BSD grep and find. The flags it uses also exist in GNU.</li>
+        </ul>
+        <h3>Help shape it</h3>
+        <p>Which commands do you look up most often? <a href="https://github.com/gnatal/nls/issues">Open an issue</a> and they could become the next templates. tar and git are next on the list.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span><span style="color:var(--accent);font-family:var(--mono)">&gt;_</span> nls 0.1.0 · natural language shell</span>
+    <span><a href="https://github.com/gnatal/nls">github.com/gnatal/nls</a></span>
+  </div>
+</footer>
+
+<script>
+  const notes = {
+    ffmpeg: "It picks <code>-c copy</code> when it can, so trimming a clip doesn't re-encode it.",
+    jq: "It reads the file's field names, so plain words like “emails” map to <code>.email</code>.",
+    grep: "“Files not containing X” becomes <code>-L</code>, not <code>-lv</code>, which would list almost every file.",
+    find: "With no filter, a delete is refused, so “delete files” can't wipe a folder."
+  };
+  const tabs = [...document.querySelectorAll('.tab')];
+  function select(tab) {
+    tabs.forEach(t => {
+      const on = t === tab;
+      t.setAttribute('aria-selected', on);
+      t.tabIndex = on ? 0 : -1;
+      document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
+    });
+    document.getElementById('note').innerHTML = notes[tab.textContent];
+  }
+  tabs.forEach((t, i) => {
+    t.addEventListener('click', () => select(t));
+    t.addEventListener('keydown', e => {
+      const d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+      if (d) { const n = tabs[(i + d + tabs.length) % tabs.length]; select(n); n.focus(); }
+    });
+  });
+  document.querySelectorAll('.copy').forEach(b => b.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = 'copied'; }
+    catch { b.textContent = 'select & copy'; }
+    setTimeout(() => b.textContent = 'copy', 1600);
+  }));
+</script>
+</body>
+</html>

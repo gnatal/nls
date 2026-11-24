@@ -125,3 +125,50 @@ grep	search for '-v' in src/	grep -rnE -e -v src/
 grep	search 'foo' in 'my notes/' and 'b.txt'	grep -rnE -e foo 'my notes/' b.txt
 grep	search 'a;rm -rf ~' in .	grep -rnE -e 'a;rm -rf ~' .
 grep	search in src/	!ERR
+# ---- find ----
+find	files larger than 100MB modified in last 7 days	find . -type f -size +100M -mtime -7
+find	c files in src ignoring build	find src -path '*/build' -prune -o -type f -name '*.c' -print
+find	empty directories in .	find . -type d -empty
+find	delete .DS_Store files recursively	find . -type f -name .DS_Store -delete
+find	python files modified in the last 2 hours	find . -type f -name '*.py' -mmin -120
+find	files not modified in 90 days in ~/Downloads	find ~/Downloads -type f -mtime +90
+find	log files older than 30 days	find . -type f -name '*.log' -mtime +30
+find	files between 10MB and 1GB	find . -type f -size +10M -size -1024M
+find	files smaller than 1k	find . -type f -size -1024c
+find	files larger than 1.5G	find . -type f -size +1536M
+find	files larger than 30m	find . -type f -size +30M
+find	files changed within 30m	find . -type f -mmin -30
+find	10 largest files ignoring .git and node_modules	find . -path '*/.git' -prune -o -path '*/node_modules' -prune -o -type f -exec du -h {} + | sort -rh | head -n 10
+find	how many c and h files in src	find src -type f \( -name '*.c' -o -name '*.h' \) | wc -l
+find	files named 'readme*' ignoring case	find . -type f -iname 'readme*'
+find	delete all node_modules directories	find . -mindepth 1 -type d -name node_modules -prune -exec rm -rf {} +
+find	delete empty directories	find . -mindepth 1 -type d -empty -delete
+find	hidden files in home directory	find ~ -type f -name '.*'
+find	directories named build excluding node_modules	find . -path '*/node_modules' -prune -o -type d -name build -print
+find	*.tmp files accessed more than 2 weeks ago	find . -type f -name '*.tmp' -atime +14
+find	top level files in the src folder	find src -maxdepth 1 -type f
+find	list files 2 levels deep	find . -maxdepth 2 -type f
+find	first 5 js files in src/	find src/ -type f -name '*.js' | head -n 5
+find	files and directories named test*	find . -name 'test*'
+find	symlinks in /usr/local/bin	find /usr/local/bin -type l
+find	files in 'my docs' named notes.txt	find 'my docs' -type f -name notes.txt
+find	find 'a;rm -rf ~'	find . -type f -name 'a;rm -rf ~'
+find	c files in src ignoring 'my build'	find src -path '*/my build' -prune -o -type f -name '*.c' -print
+find	files ignoring hidden directories	find . -path '*/.*' -prune -o -type f -print
+find	files 30 days old	find . -type f -mtime +30
+find	c files in src and tests	find src tests -type f -name '*.c'
+find	files	find . -type f
+find	delete files	!ERR
+find	delete files in build/	!ERR
+find	delete files older than 7 days ignoring .git	!ERR
+find	largest directories	!ERR
+find	ignoring case	!ERR
+find	files in src, tests and docs	find src tests docs -type f
+find	files in this folder that end in .c and has less than 100 lines	find . -type f -name '*.c' -exec awk 'END { exit !(NR < 100) }' {} \; -print
+find	files with 100 lines or fewer	find . -type f -exec awk 'END { exit !(NR <= 100) }' {} \; -print
+find	files with at least 10 lines	find . -type f -exec awk 'END { exit !(NR >= 10) }' {} \; -print
+find	how many py files have over 1000 lines	find . -type f -name '*.py' -exec awk 'END { exit !(NR > 1000) }' {} \; -print | wc -l
+find	top 3 biggest files	find . -type f -exec du -h {} + | sort -rh | head -n 3
+find	show 5 files	!ERR
+find	c files with 100 words	!ERR
+find	directories with less than 5 lines	!ERR

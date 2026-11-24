@@ -13,6 +13,16 @@
  *                        build_flags(); empty (and eats one space) if none
  *   << ... >>            optional group: emitted only if every placeholder
  *                        inside resolved to a user-supplied value
+ * find only (each expands to "" or to text with a leading space):
+ *   {KIND}               " -type f|d|l" (nothing for "files and directories")
+ *   {NAMES}              " -name X" / " \( -name X -o -name Y \)" from EXT and
+ *                        QUOTED_STR slots; -iname when ignoring case
+ *   {DEPTH}              " -maxdepth N"
+ *   {PRUNE}              " -path '*\/X' -prune -o" per EXCLUDE slot
+ *   {PRINT}              " -print" when {PRUNE} emitted anything or a
+ *                        line-count test (an -exec) is present
+ * For find, every slot the user gave must be used by the template: a
+ * dropped "older than 30 days" would make a delete far broader.
  *
  * FILE, QUOTED_STR and OUT_FILE values are POSIX shell-quoted. All other
  * slot values are produced by the lexer from a restricted alphabet and are
@@ -49,7 +59,8 @@ bool nl_shell_quote(const char *in, char *out, size_t out_size) {
     Out o = { out, out_size, 0, false };
     if (out_size) out[0] = '\0';
 
-    /* Keep a leading "~/" unquoted so the shell still expands it. */
+    /* Keep a leading "~/" (or a bare "~") unquoted so the shell still expands it. */
+    if (in[0] == '~' && in[1] == '\0') { out_putn(&o, in, 1); return !o.overflow; }
     if (in[0] == '~' && in[1] == '/') { out_putn(&o, in, 2); in += 2; }
 
     bool safe = in[0] != '\0';
@@ -73,8 +84,44 @@ static bool needs_quoting(SlotType t) {
     return t == SLOT_FILE || t == SLOT_QUOTED_STR;
 }
 
+/* find SIZE: [+-]digits[ckMG] */
+static bool find_size_ok(const char *v) {
+    if (*v == '+' || *v == '-') v++;
+    if (!isdigit((unsigned char)*v)) return false;
+    while (isdigit((unsigned char)*v)) v++;
+    return v[0] && strchr("ckMG", v[0]) && v[1] == '\0';
+}
+
+/* find TIME: -[am](time|min) [+-]digits */
+static bool find_time_ok(const char *v) {
+    if (v[0] != '-' || (v[1] != 'a' && v[1] != 'm')) return false;
+    v += 2;
+    if (strncmp(v, "time ", 5) == 0 || strncmp(v, "min ", 4) == 0) v = strchr(v, ' ') + 1;
+    else return false;
+    if (*v != '+' && *v != '-') return false;
+    v++;
+    if (!isdigit((unsigned char)*v)) return false;
+    while (isdigit((unsigned char)*v)) v++;
+    return *v == '\0';
+}
+
+/* find LINES: (<|>|<=|>=|==|!=) digits */
+static bool find_lines_ok(const char *v) {
+    static const char *const ops[] = { "<= ", ">= ", "== ", "!= ", "< ", "> " };
+    size_t k = 0;
+    while (k < sizeof ops / sizeof ops[0] && strncmp(v, ops[k], strlen(ops[k])) != 0) k++;
+    if (k == sizeof ops / sizeof ops[0]) return false;
+    v += strlen(ops[k]);
+    if (!isdigit((unsigned char)*v)) return false;
+    while (isdigit((unsigned char)*v)) v++;
+    return *v == '\0';
+}
+
 /* Raw-spliced values must stay inside this alphabet. */
-static bool raw_value_ok(const char *v) {
+static bool raw_value_ok(SlotType type, const char *v) {
+    if (type == SLOT_SIZE) return find_size_ok(v);
+    if (type == SLOT_LINES) return find_lines_ok(v);
+    if (type == SLOT_TIME && strchr(v, ' ')) return find_time_ok(v);
     for (const char *p = v; *p; p++) {
         unsigned char c = (unsigned char)*p;
         if (!(isalnum(c) || strchr("._:-[]?", c))) return false;
@@ -206,6 +253,158 @@ static bool build_flags(const ParseContext *ctx, const char *rest, const char *c
     return n >= 0 && (size_t)n < dst_size;
 }
 
+/* ------------------------------------------------------------------ */
+/* find                                                               */
+/* ------------------------------------------------------------------ */
+
+/* Does the template reference slot {NAME:idx} (directly, or through one of
+ * the find builders)? */
+static bool template_uses(const char *tpl, SlotType type, int idx) {
+    if ((type == SLOT_EXT || type == SLOT_QUOTED_STR) && strstr(tpl, "{NAMES}")) return true;
+    if (type == SLOT_EXCLUDE && strstr(tpl, "{PRUNE}")) return true;
+    char key[32];
+    int n = snprintf(key, sizeof key, "{%s:%d", nl_slot_name(type), idx);
+    for (const char *p = tpl; (p = strstr(p, key)) != NULL; p += n)
+        if (p[n] == '}' || p[n] == '|') return true;
+    return false;
+}
+
+static bool find_has_filter(const ParseContext *ctx) {
+    return nl_count_slots(ctx, SLOT_EXT) || nl_count_slots(ctx, SLOT_QUOTED_STR) ||
+           nl_count_slots(ctx, SLOT_SIZE) || nl_count_slots(ctx, SLOT_TIME) ||
+           nl_count_slots(ctx, SLOT_LINES);
+}
+
+/* Refuse templates that would silently drop part of the request. */
+static bool find_check(const ParseContext *ctx, const CommandTemplate *tpl,
+                       char *err, size_t err_size) {
+    const char *t = tpl->flag_template;
+    if (ctx->find_stray) {
+        set_err(err, err_size, "not sure what '%s' refers to; try e.g. 'first 5', "
+                "'larger than 5MB', 'older than 5 days' or 'less than 5 lines'", ctx->find_stray);
+        return false;
+    }
+    int seen[SLOT_TYPE_COUNT] = { 0 };
+    for (size_t i = 0; i < ctx->slot_count; i++) {
+        SlotType type = ctx->slots[i].type;
+        if (template_uses(t, type, seen[type]++)) continue;
+        if (type == SLOT_EXCLUDE && strstr(t, "-delete")) {
+            set_err(err, err_size, "skipping directories can't be combined with deleting "
+                    "(find's -delete turns off -prune); narrow the search path instead%s", "");
+            return false;
+        }
+        static const char *const what[SLOT_TYPE_COUNT] = {
+            [SLOT_FILE] = "searching that many directories", [SLOT_EXT] = "a name filter",
+            [SLOT_QUOTED_STR] = "a name filter", [SLOT_TIME] = "an age filter",
+            [SLOT_NUM] = "a count", [SLOT_SIZE] = "a size filter",
+            [SLOT_EXCLUDE] = "excluding directories", [SLOT_LINES] = "a line-count filter",
+        };
+        set_err(err, err_size, "%s isn't supported for this command",
+                what[type] ? what[type] : "that");
+        return false;
+    }
+    if (ctx->find_kind_set && !strstr(t, "{KIND}")) {
+        const char *ty = strstr(t, "-type ");
+        char want = ty ? ty[6] : 0;
+        if (ctx->find_kind != want) {
+            set_err(err, err_size, "this command only works on %s",
+                    want == 'd' ? "directories" : "regular files");
+            return false;
+        }
+    }
+    if (nl_count_slots(ctx, SLOT_LINES)) {
+        const char *ty = strstr(t, "-type ");
+        char type = strstr(t, "{KIND}") ? (ctx->find_kind ? ctx->find_kind : 'f') : ty ? ty[6] : 0;
+        if (type != 'f') {
+            set_err(err, err_size, "line counts only apply to regular files%s", "");
+            return false;
+        }
+    }
+    if (strchr(ctx->flags, 'i') &&
+        (!strstr(t, "{NAMES}") || !(nl_count_slots(ctx, SLOT_EXT) || nl_count_slots(ctx, SLOT_QUOTED_STR)))) {
+        set_err(err, err_size, "ignoring case only applies to a name pattern (e.g. named 'readme*')%s", "");
+        return false;
+    }
+    if (ctx->find_depth[0] && !strstr(t, "{DEPTH}")) {
+        set_err(err, err_size, "a depth limit isn't supported for this command%s", "");
+        return false;
+    }
+    if ((strstr(t, "-delete") || strstr(t, "rm -")) && !strstr(t, "-empty") && !find_has_filter(ctx)) {
+        set_err(err, err_size, "refusing to delete everything; say which files "
+                "(e.g. '*.log', named 'core', older than 30 days)%s", "");
+        return false;
+    }
+    return true;
+}
+
+/* {KIND} {NAMES} {DEPTH} {PRUNE} {PRINT}. Returns -1 if `name` is not one of
+ * them, 0 on error, 1 when expanded. */
+static int find_placeholder(const ParseContext *ctx, const char *name, size_t len, Out *o,
+                            char *err, size_t err_size) {
+    char quoted[NL_MAX_CMD_LEN];
+#define IS(lit) (len == sizeof lit - 1 && strncmp(name, lit, len) == 0)
+    if (IS("KIND")) {
+        char k = ctx->find_kind ? ctx->find_kind : 'f';
+        if (k != 'a') { out_puts(o, " -type "); out_putn(o, &k, 1); }
+        return 1;
+    }
+    if (IS("DEPTH")) {
+        if (ctx->find_depth[0]) { out_puts(o, " -maxdepth "); out_puts(o, ctx->find_depth); }
+        return 1;
+    }
+    if (IS("PRINT")) {
+        /* pruning, or the awk line-count test (-exec is an action), turn
+         * off find's implicit -print */
+        if (nl_count_slots(ctx, SLOT_EXCLUDE) || nl_count_slots(ctx, SLOT_LINES))
+            out_puts(o, " -print");
+        return 1;
+    }
+    if (IS("PRUNE")) {
+        for (int k = 0; k < nl_count_slots(ctx, SLOT_EXCLUDE); k++) {
+            const char *v = nl_find_slot(ctx, SLOT_EXCLUDE, k);
+            char pat[NL_MAX_INPUT + 4];
+            snprintf(pat, sizeof pat, "*/%s", v);
+            if (!nl_shell_quote(pat, quoted, sizeof quoted)) { o->overflow = true; return 1; }
+            out_puts(o, " -path ");
+            out_puts(o, quoted);
+            out_puts(o, " -prune -o");
+        }
+        return 1;
+    }
+    if (IS("NAMES")) {
+        const char *test = strchr(ctx->flags, 'i') ? "-iname " : "-name ";
+        int next = nl_count_slots(ctx, SLOT_EXT), nstr = nl_count_slots(ctx, SLOT_QUOTED_STR);
+        if (next + nstr == 0) return 1;
+        bool group = next + nstr > 1;
+        if (group) out_puts(o, " \\(");
+        for (int k = 0; k < next + nstr; k++) {
+            out_puts(o, k ? " -o " : " ");
+            out_puts(o, test);
+            if (k < next) {
+                const char *e = nl_find_slot(ctx, SLOT_EXT, k);
+                for (const char *p = e; *p; p++)
+                    if (!isalnum((unsigned char)*p)) {
+                        set_err(err, err_size, "refusing unsafe value '%s'", e);
+                        return 0;
+                    }
+                out_puts(o, "'*.");
+                out_puts(o, e);
+                out_puts(o, "'");
+            } else {
+                if (!nl_shell_quote(nl_find_slot(ctx, SLOT_QUOTED_STR, k - next), quoted, sizeof quoted)) {
+                    o->overflow = true;
+                    return 1;
+                }
+                out_puts(o, quoted);
+            }
+        }
+        if (group) out_puts(o, " \\)");
+        return 1;
+    }
+#undef IS
+    return -1;
+}
+
 /*
  * Expand template text [p, end) into `o`.
  * *placeholders / *all_user track whether an optional group may be emitted.
@@ -284,6 +483,13 @@ static bool expand_range(const ParseContext *ctx, const char *p, const char *end
             continue;
         }
 
+        /* ---- find builders ---- */
+        if (ctx->tool == TOOL_FIND && *rest == '}') {
+            int r = find_placeholder(ctx, name, name_len, o, err, err_size);
+            if (r == 0) return false;
+            if (r == 1) { p = close + 1; continue; }
+        }
+
         /* ---- {TYPE:i|default} ---- */
         SlotType type = slot_from_name(name, name_len);
         if (type == SLOT_NONE || *rest != ':') { out_putn(o, p, 1); p++; continue; }
@@ -303,7 +509,7 @@ static bool expand_range(const ParseContext *ctx, const char *p, const char *end
                 if (!nl_shell_quote(v, quoted, sizeof quoted)) { o->overflow = true; return true; }
                 out_puts(o, quoted);
             } else {
-                if (!raw_value_ok(v)) {
+                if (!raw_value_ok(type, v)) {
                     set_err(err, err_size, "refusing unsafe value '%s'", v);
                     return false;
                 }
@@ -334,6 +540,8 @@ bool nl_expand(const ParseContext *ctx, const CommandTemplate *tpl,
     int placeholders = 0;
     bool all_user = true;
     const char *t = tpl->flag_template;
+
+    if (ctx->tool == TOOL_FIND && !find_check(ctx, tpl, err, err_size)) return false;
 
     if (!expand_range(ctx, t, t + strlen(t), &o, false, &placeholders, &all_user, err, err_size))
         return false;

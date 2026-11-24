@@ -1,0 +1,30 @@
+# prompt	expected output (lines sorted, then whitespace-normalized; run on a tree built by run_find_exec.sh)
+c files in src ignoring build	src/main.c
+c and h files in src	src/build/gen.c src/main.c src/util.h
+files larger than 1MB	./src/lib/big.bin
+files smaller than 1k in src	src/.DS_Store src/app.js src/build/gen.c src/main.c src/util.h
+files between 1MB and 3MB	./src/lib/big.bin
+log files older than 30 days	./logs/old.log
+log files modified in the last 7 days	./logs/new.log
+files not modified in the last 90 days	./logs/old.log
+empty directories	./emptydir
+empty files	./empty.txt
+how many c files	2
+js files ignoring node_modules	./src/app.js
+files named 'readme*' ignoring case	./README.md
+top level files	./.DS_Store ./README.md ./empty.txt
+directories named build	./src/build
+1 largest file in src	2.0M src/lib/big.bin
+first 2 log files in logs	logs/new.log logs/old.log
+delete .DS_Store files recursively	removed: ./.DS_Store ./src/.DS_Store
+delete log files older than 30 days	removed: ./logs/old.log
+delete all node_modules directories	removed: ./node_modules ./node_modules/pkg ./node_modules/pkg/index.js
+delete empty directories	removed: ./emptydir
+delete files	!ERR
+delete files in src	!ERR
+delete files ignoring .git	!ERR
+txt files with more than 3 lines	./logs/long.txt
+files in logs with at most 1 line	logs/new.log logs/old.log
+delete txt files with 5 lines or more	removed: ./logs/long.txt
+show 5 files	!ERR
+c files in src with less than 100 lines	src/build/gen.c src/main.c

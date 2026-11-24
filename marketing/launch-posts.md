@@ -10,12 +10,12 @@ removed.
 
 **Title** (80 chars max, no hype words):
 
-> Show HN: nls – English to ffmpeg/jq/grep commands, offline, no LLM, 100 KB of C
+> Show HN: nls – English to ffmpeg/jq/grep/find commands, offline, no LLM
 
 **Body:**
 
-> I keep forgetting ffmpeg flags, jq syntax and which grep flag lists the
-> files that *don't* match. I didn't want an AI tool
+> I keep forgetting ffmpeg flags, jq syntax, which grep flag lists the
+> files that *don't* match, and how find's `-prune` works. I didn't want an AI tool
 > that sends my file names to an API and sometimes invents flags. So I built
 > `nls`, a small C11 program that turns plain English into the exact command:
 >
@@ -28,19 +28,26 @@ removed.
 >     $ nls grep "which python files contain TODO, ignoring case"
 >     grep -rlEi --include='*.py' -e TODO .
 >
+>     $ nls find "files larger than 5MB ignoring node_modules"
+>     find . -path '*/node_modules' -prune -o -type f -size +5M -print
+>
 > How it works: a lexer pulls out typed values (files, timestamps,
-> resolutions, JSON paths). A scorer then picks the best of ~86 built-in
+> resolutions, sizes, ages, JSON paths). A scorer then picks the best of ~93 built-in
 > templates, and an expander fills it in with safe shell quoting. For jq it
 > peeks at the input file to learn its field names, which is why "emails"
 > becomes `.email`. No model, no network, so the same input always gives the
 > same output in about 2 ms.
 >
 > It only prints the command unless you pass `-x`, and even then it asks first.
+> For find it's stricter still: `delete files` with no filter is refused, and
+> if it can't express part of your request (say, "older than 30 days") it
+> refuses rather than running a broader delete.
 >
-> Limits: only ffmpeg, jq and grep so far, POSIX shells only, jq filters
+> Limits: only ffmpeg, jq, grep and find so far, POSIX shells only, jq filters
 > can't combine conditions yet, and grep can't exclude directories yet. The
-> test suite runs the generated commands against real ffmpeg, jq and grep,
-> and checks ffmpeg's output with ffprobe.
+> test suite runs the generated commands against real ffmpeg, jq, grep and
+> find (deletes included, on a throwaway tree), and checks ffmpeg's output
+> with ffprobe.
 >
 > I'd love to hear which commands you'd want it to know. <repo-url>
 
@@ -53,7 +60,7 @@ first 2 hours. Don't ask for upvotes.
 
 **Title:**
 
-> I made a tiny offline tool that turns English into ffmpeg/jq/grep commands (no AI, ~2 ms)
+> I made a tiny offline tool that turns English into ffmpeg/jq/grep/find commands (no AI, ~2 ms)
 
 **Body:**
 
@@ -61,9 +68,11 @@ first 2 hours. Don't ask for upvotes.
 > full palette-optimized ffmpeg command. `nls jq "get names from users.json
 > where age > 30"` prints `jq 'map(select(.age > 30) | .name)' users.json`.
 > `nls grep "list files not containing 'license' in src/"` prints
-> `grep -rLE -e license src/`.
+> `grep -rLE -e license src/`. And `nls find "delete all node_modules
+> directories"` prints
+> `find . -mindepth 1 -type d -name node_modules -prune -exec rm -rf {} +`.
 >
-> It's 100 KB of C with no dependencies. There's no LLM: it matches your words
+> It's 120 KB of C with no dependencies. There's no LLM: it matches your words
 > against a set of tested templates, so it can't make up flags. It prints by
 > default; `-x` runs the command after asking you.
 >
@@ -96,11 +105,16 @@ path". Ask for code review.
 > → `grep -rlEi --include='*.py' -e TODO .`
 > "files not containing X" correctly becomes `-L`, not `-lv`.
 >
-> 5/ Why no LLM? Same input always gives the same output, about 2 ms, nothing
-> leaves your machine, and it can't invent flags. Every command comes from a
-> template that's tested against real ffmpeg, jq and grep.
+> 5/ And find, minus the Stack Overflow trip:
+> `nls find "files larger than 5MB ignoring node_modules"`
+> → `find . -path '*/node_modules' -prune -o -type f -size +5M -print`
+> Deletes with no filter are refused, so "delete files" can't wipe a folder.
 >
-> 6/ It prints by default. `-x` runs it after asking. Free and open source:
+> 6/ Why no LLM? Same input always gives the same output, about 2 ms, nothing
+> leaves your machine, and it can't invent flags. Every command comes from a
+> template that's tested against real ffmpeg, jq, grep and find.
+>
+> 7/ It prints by default. `-x` runs it after asking. Free and open source:
 > <repo-url>
 
 ---
@@ -111,11 +125,13 @@ path". Ask for code review.
 >
 > You type `nls ffmpeg "extract from talk.mp4 the first 10 seconds into
 > intro.mp4"` and get `ffmpeg -i talk.mp4 -t 10 -c copy intro.mp4`. It does
-> the same for jq and grep: `nls grep "which python files contain TODO"`
-> gives `grep -rlE --include='*.py' -e TODO .`
+> the same for jq, grep and find: `nls grep "which python files contain TODO"`
+> gives `grep -rlE --include='*.py' -e TODO .`, and
+> `nls find "log files older than 30 days"` gives
+> `find . -type f -name '*.log' -mtime +30`.
 >
 > The interesting part is what it *doesn't* use: no LLM, no API, no network.
-> It's about 2,400 lines of C that compile English against a library of
+> It's about 3,200 lines of C that compile English against a library of
 > tested command templates. That makes it deterministic and fast (~2 ms), and
 > private by default.
 >
@@ -126,7 +142,9 @@ path". Ask for code review.
 >   to AI tools.
 > • Small UX details matter most. "from 1 to 3 seconds" has to mean the
 >   range, not "from 3".
+> • Refusing beats guessing. If a cleanup command can't express everything
+>   you asked for, running a broader delete is the worst possible answer.
 >
 > Open source: <repo-url>
 >
-> #opensource #cli #ffmpeg #grep #c
+> #opensource #cli #ffmpeg #grep #find #c

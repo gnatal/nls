@@ -22,6 +22,7 @@ typedef enum {
     TOOL_FFMPEG,
     TOOL_JQ,
     TOOL_GREP,
+    TOOL_FIND,
     TOOL_COUNT
 } ToolId;
 
@@ -29,7 +30,8 @@ typedef enum {
     SLOT_NONE = 0,
     SLOT_FILE,       /* input.mp4, users.json, ./clips/             (shell-quoted) */
     SLOT_EXT,        /* ffmpeg: mp3, mp4, gif; grep: file type (py) for --include */
-    SLOT_TIME,       /* 00:10, 01:20:30, 15s -> "15", 2min -> "120"  (ffmpeg only)  */
+    SLOT_TIME,       /* ffmpeg: 00:10, 15s -> "15", 2min -> "120";
+                        find: a whole age test, "last 7 days" -> "-mtime -7"       */
     SLOT_RES,        /* 720p -> "-2:720", 1920x1080 -> "1920:1080"   (ffmpeg only)  */
     SLOT_BITRATE,    /* 128k, 320kbps -> "320k", 2M                  (ffmpeg only)  */
     SLOT_FPS,        /* 30fps, "30 fps", "fps 30"                    (ffmpeg only)  */
@@ -38,6 +40,9 @@ typedef enum {
     SLOT_QUOTED_STR, /* 'ERROR', "bob", a bare word after a jq comparator, or a
                         grep pattern after "for"/"containing"/...              */
     SLOT_JSON_PATH,  /* .users[].email, .status                      (jq only)      */
+    SLOT_SIZE,       /* find: "larger than 100MB" -> "+100M", "under 1k" -> "-1024c" */
+    SLOT_EXCLUDE,    /* find: a directory / pattern to prune ("ignoring build")      */
+    SLOT_LINES,      /* find: "less than 100 lines" -> "< 100" (awk NR comparison)   */
     SLOT_TYPE_COUNT
 } SlotType;
 
@@ -83,7 +88,11 @@ typedef struct {
     uint8_t cond_paths;                      /* jq: paths used as conditions/keys */
     char input_shape;                        /* jq: '[' or '{' if FILE:0 was peeked, else 0 */
     bool wants_count;                        /* jq: "how many", "count", "number of" */
-    char flags[8];                           /* grep: modifier letters i w v F       */
+    char flags[8];                           /* grep: modifier letters i w v F; find: i */
+    char find_kind;                          /* find: 'f', 'd', 'l', or 'a' (any type) */
+    bool find_kind_set;                      /* find: the user named a file type     */
+    char find_depth[8];                      /* find: -maxdepth value, "" if none    */
+    const char *find_stray;                  /* find: a number nls couldn't place    */
     bool overflow;                           /* too many tokens/slots or arena full */
 } ParseContext;
 
