@@ -44,7 +44,7 @@ while IFS="$TAB" read -r prompt check expected; do
     case "$prompt" in ''|'#'*) continue ;; esac
     case "$prompt" in *zst*) [ $have_zstd -eq 0 ] && { skip=$((skip+1)); continue; } ;; esac
     make_tree
-    cmd=$("$NL" tar "$prompt" 2>&1); rc=$?
+    cmd=$("$NL" tar "$prompt" 2>/dev/null); rc=$?; [ $rc -ne 0 ] && cmd=$("$NL" tar "$prompt" 2>&1)
     if [ $rc -ne 0 ]; then
         fail=$((fail+1)); printf 'FAIL (nls error): %s\n  %s\n' "$prompt" "$cmd"; continue
     fi

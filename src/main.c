@@ -105,6 +105,72 @@ static int run_command(const char *cmd) {
 #endif
 }
 
+/* Print the words that did / didn't count toward the match. */
+static void print_tokens(const ParseContext *ctx, uint32_t mask, bool matched) {
+    bool first = true;
+    for (size_t t = 0; t < ctx->token_count; t++) {
+        if (((mask >> t) & 1u) != matched || ctx->intent_tokens[t][0] == '@') continue;
+        fprintf(stderr, "%s\"%s\"", first ? "" : ", ", ctx->intent_tokens[t]);
+        first = false;
+    }
+}
+
+/* Warn on stderr when the pick was weak or a close call. Returns true if
+ * the user should look before the command runs. */
+static bool warn_uncertain(const ParseContext *ctx, const MatchResult *m, const char *cmd) {
+    char alt_cmd[NL_MAX_ALTS][NL_MAX_CMD_LEN];
+    const CommandTemplate *alts[NL_MAX_ALTS];
+    int nalts = 0;
+    for (uint8_t k = 0; k < m->alt_count; k++) {
+        char err[64];
+        if (!nl_expand(ctx, m->alts[k], alt_cmd[nalts], sizeof alt_cmd[nalts], err, sizeof err))
+            continue;
+        if (strcmp(alt_cmd[nalts], cmd) == 0) continue;
+        bool dup = false;
+        for (int j = 0; j < nalts; j++) if (strcmp(alt_cmd[j], alt_cmd[nalts]) == 0) dup = true;
+        if (!dup) alts[nalts++] = m->alts[k];
+    }
+    if (!m->low_confidence && nalts == 0) return false;
+
+    if (m->low_confidence) {
+        if (m->best_tokens) {
+            fprintf(stderr, "nls: low-confidence match: only ");
+            print_tokens(ctx, m->best_tokens, true);
+            fprintf(stderr, " matched; ignored ");
+        } else {
+            fprintf(stderr, "nls: low-confidence match: no keyword matched; ignored ");
+        }
+        print_tokens(ctx, m->best_tokens, false);
+        fputc('\n', stderr);
+    }
+    if (nalts > 0) {
+        fprintf(stderr, "nls: picked \"%s\" (%s); this request also fits:\n",
+                m->best->description, m->best->id);
+        for (int k = 0; k < nalts; k++)
+            fprintf(stderr, "  %-22s %s\n  %-22s   %s\n", alts[k]->id, alts[k]->description, "",
+                    alt_cmd[k]);
+        fprintf(stderr, "nls: rephrase to choose (see 'nls -v' for scores)\n");
+    }
+    return true;
+}
+
+/* Print the command, or show it and run it (-x). With -y the prompt is
+ * skipped, except for an uncertain match. */
+static int finish(const char *cmd, bool exec, bool yes, bool uncertain) {
+    if (!exec) {
+        printf("%s\n", cmd);
+        return 0;
+    }
+    fprintf(stderr, "\xe2\x86\x92 %s\n", cmd);
+    if (yes && uncertain)
+        fprintf(stderr, "nls: not running an uncertain match without confirmation (-y ignored)\n");
+    if ((!yes || uncertain) && !confirm()) {
+        fprintf(stderr, "nls: aborted\n");
+        return 130;
+    }
+    return run_command(cmd);
+}
+
 int main(int argc, char **argv) {
     bool exec = false, yes = false, verbose = false;
     int i = 1;
@@ -158,14 +224,16 @@ int main(int argc, char **argv) {
     }
     /* jq: if the input file is readable, learn its shape and field names,
      * then lex again so bare words like "emails" can resolve to .email */
+    static JsonInfo json;
+    bool have_json = false;
     if (tool == TOOL_JQ) {
         const char *file = nl_find_slot(&ctx, SLOT_FILE, 0);
         const char *ext = file ? strrchr(file, '.') : NULL;
         bool lines = ext && (strcmp(ext, ".jsonl") == 0 || strcmp(ext, ".ndjson") == 0);
-        static JsonInfo json;
         if (file && !lines && nl_inspect_json(file, &json)) {
             nl_lex(&ctx, tool, prompt, &json);
             ctx.input_shape = json.shape;
+            have_json = true;
         }
     }
     if (verbose) {
@@ -174,10 +242,19 @@ int main(int argc, char **argv) {
             fprintf(stderr, "input: %s\n", ctx.input_shape == '[' ? "array" : "object");
     }
 
+    char cmd[NL_MAX_CMD_LEN];
+    char err[256];
+
+    /* jq: "where .a is x and .b > 3" */
     if (tool == TOOL_JQ && ctx.cond_paths > 1) {
-        fprintf(stderr, "nls: combining several conditions (e.g. \"where .a is x and .b > 3\") "
-                        "isn't supported yet; use one condition per request\n");
-        return 1;
+        if (!nl_jq_compound(prompt, have_json ? &json : NULL, verbose, cmd, sizeof cmd,
+                            err, sizeof err)) {
+            if (err[0]) fprintf(stderr, "nls: %s\n", err);
+            else fprintf(stderr, "nls: found several conditions; join them with \"and\" or \"or\" "
+                                 "(e.g. \"where .a is x and .b > 3\")\n");
+            return 1;
+        }
+        return finish(cmd, exec, yes, false);
     }
 
     if (verbose && ctx.flags[0]) fprintf(stderr, "modifiers: %s\n", ctx.flags);
@@ -210,22 +287,11 @@ int main(int argc, char **argv) {
 
     if (verbose) fprintf(stderr, "match: %s (score %d)\n", m.best->id, m.best_score);
 
-    char cmd[NL_MAX_CMD_LEN];
-    char err[256];
     if (!nl_expand(&ctx, m.best, cmd, sizeof cmd, err, sizeof err)) {
         fprintf(stderr, "nls: %s (%s)\n", err, m.best->id);
         return 1;
     }
 
-    if (!exec) {
-        printf("%s\n", cmd);
-        return 0;
-    }
-
-    fprintf(stderr, "\xe2\x86\x92 %s\n", cmd);
-    if (!yes && !confirm()) {
-        fprintf(stderr, "nls: aborted\n");
-        return 130;
-    }
-    return run_command(cmd);
+    bool uncertain = warn_uncertain(&ctx, &m, cmd);
+    return finish(cmd, exec, yes, uncertain);
 }

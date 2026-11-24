@@ -73,7 +73,7 @@ while IFS="$TAB" read -r setup prompt check expected; do
     case "$setup" in ''|'#'*) continue ;; esac
     make_repo
     [ "$setup" != "-" ] && { eval "$setup" >/dev/null 2>&1 || { fail=$((fail+1)); printf 'FAIL (setup): %s\n' "$setup"; continue; }; }
-    cmd=$("$NL" git "$prompt" 2>&1); rc=$?
+    cmd=$("$NL" git "$prompt" 2>/dev/null); rc=$?; [ $rc -ne 0 ] && cmd=$("$NL" git "$prompt" 2>&1)
     if [ $rc -ne 0 ]; then
         fail=$((fail+1)); printf 'FAIL (nls error): %s\n  %s\n' "$prompt" "$cmd"; continue
     fi

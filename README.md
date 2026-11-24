@@ -77,7 +77,7 @@ transparency, colour space, EXIF and individual pixel colours.
 nls [options] <tool> "<what you want>"
 
   -x, --exec        run the command (shows it, asks for confirmation)
-  -y, --yes         with -x: skip confirmation
+  -y, --yes         with -x: skip confirmation (not for uncertain matches)
   -v, --verbose     show extracted slots, tokens and template scores
   -l, --list [tool] list all templates with example prompts
 ```
@@ -101,6 +101,8 @@ Quote the whole prompt so your shell doesn't interpret `>`, `'` or `*`.
 | `ffmpeg "compress video.mkv to 720p"` | `ffmpeg -i video.mkv -vf scale=-2:720 -c:v libx264 -crf 28 … video_compressed.mp4` |
 | `ffmpeg "remove audio from video.mp4"` | `ffmpeg -i video.mp4 -c:v copy -an video_muted.mp4` |
 | `jq "users.json where .status is active"` | `jq --arg v active 'map(select(.status == $v))' users.json` |
+| `jq "users.json where .age > 30 and .status is active"` | `jq --arg v2 active 'map(select((.age > 30) and (.status == $v2)))' users.json` |
+| `jq "users.json where .age between 20 and 40"` | `jq 'map(select(.age >= 20 and .age <= 40))' users.json` |
 | `jq "count users.json by .status"` | `jq 'group_by(.status) \| map({key: …, count: length})' users.json` |
 | `jq "sort users.json by .age descending"` | `jq 'sort_by(.age) \| reverse' users.json` |
 | `jq "convert users.json to csv with .name .email"` | `jq -r '.[] \| [.name, .email] \| @csv' users.json` |
@@ -162,12 +164,33 @@ Run `nls --list` to see all templates.
      first.
 2. **Matcher** (`src/matcher.c`): scores templates of the chosen tool by
    keyword overlap.
-   - Points per keyword: exact match +10, plural +8, shared 4-character stem
-     +6. Each user word counts at most once.
+   - Points per keyword: exact match +10, inflection +8 (plural, or the same
+     stem after stripping -s, -ing, -ed, or -er on comparatives: "changed" =
+     "change", "bigger" = "big"), built-in synonym +7 ("shrink" = "compress",
+     "erase" = "delete", "rollback" = "revert"), shared 4-character prefix
+     +6. Each user word counts at most once. The synonym table and stemmer
+     are compiled in (`src/matcher.c`).
    - Templates missing a required slot are blocked. If a blocked template
      scores higher than any valid one, `nls` reports what is missing instead of
      guessing.
-   - Ties go to the template that uses more of what the user said.
+   - Ties go to the template that uses more of what the user said, then the
+     more specific one, then the one matched by real words rather than filler
+     ("make video.mp4 smaller" compresses; "make" alone doesn't make it a GIF).
+   - If a close runner-up was matched by a word the winner ignored, `nls`
+     still prints its pick but lists the alternatives on stderr. A match
+     that rests on a single keyword while another meaningful word went
+     unused is flagged as low-confidence. Either way, `-y` no longer skips
+     the confirmation for that command.
+   - git: when a template can't take a detail you gave (git diff has no date
+     filter), one that can wins instead: "what changed yesterday" →
+     `git log --since='yesterday' -p`.
+   - jq conditions can be joined with "and", "but" or "or": each clause is
+     matched on its own and the conditions are combined into one `select()`.
+     When both are used, "and" binds tighter than "or" (as in jq), and nls
+     prints the grouping it chose on stderr: `.a is 1 or .b is 2 and .c is 3`
+     is read as `.a is 1 or (.b is 2 and .c is 3)`.
+   - jq ranges: `where .age between 20 and 40` (or "within") keeps items with
+     `.age >= 20 and .age <= 40`; reversed bounds are put in order.
    - For jq, if the input file exists, `nls` reads its first non-blank byte to
      see whether it is an array or an object. It then skips templates that
      can't work on that shape. For example, `get .name` becomes
@@ -234,7 +257,8 @@ Run `nls --list` to see all templates.
 ## Safety
 
 - `nls` never runs anything without `-x`, and `-x` asks first unless you also
-  pass `-y`.
+  pass `-y`. Even with `-y` it asks when the match was uncertain (a close
+  runner-up or a low-confidence match, see above).
 - Files and strings are always shell-quoted. jq string values are passed with
   `--arg`, never spliced into the jq program.
 - grep patterns are passed with `-e`, so a pattern starting with `-` is never

@@ -49,7 +49,7 @@ while IFS="$TAB" read -r prompt check expected; do
     case "$prompt" in *json\ from*) command -v jq >/dev/null 2>&1 || continue ;; esac
     prompt=$(printf '%s' "$prompt" | sed "s|{BASE}|$BASE|g")
     make_tree
-    cmd=$("$NL" curl "$prompt" 2>&1); rc=$?
+    cmd=$("$NL" curl "$prompt" 2>/dev/null); rc=$?; [ $rc -ne 0 ] && cmd=$("$NL" curl "$prompt" 2>&1)
     if [ "$expected" = "!ERR" ]; then
         if [ $rc -ne 0 ]; then pass=$((pass+1)); else
             fail=$((fail+1)); printf 'FAIL: nls curl "%s" should be refused, got: %s\n' "$prompt" "$cmd"; fi

@@ -80,8 +80,8 @@ TAB=$(printf '\t')
 while IFS="$TAB" read -r prompt checks; do
     case "$prompt" in ''|'#'*) continue ;; esac
     reset_run
-    cmd=$("$NLS" ffmpeg "$prompt" 2>&1) || {
-        fail=$((fail+1)); printf 'FAIL (nls error): %s\n  %s\n' "$prompt" "$cmd"; continue; }
+    cmd=$("$NLS" ffmpeg "$prompt" 2>/dev/null) || {
+        cmd=$("$NLS" ffmpeg "$prompt" 2>&1); fail=$((fail+1)); printf 'FAIL (nls error): %s\n  %s\n' "$prompt" "$cmd"; continue; }
 
     # output file = last shell word of the command
     eval "set -- $cmd"

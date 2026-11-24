@@ -19,6 +19,14 @@
 #define NL_MAX_CMD_LEN    4096
 #define NL_MAX_FIELDS     64
 
+/* Matching confidence (matcher.c). A single keyword scores at most 10, so
+ * below NL_CONFIDENT_SCORE only one word matched; if the user said more
+ * than that, the match is flagged low-confidence. A runner-up within
+ * NL_CLOSE_MARGIN points is reported as an alternative. */
+#define NL_CONFIDENT_SCORE 12
+#define NL_CLOSE_MARGIN    2
+#define NL_MAX_ALTS        2
+
 typedef enum {
     TOOL_UNKNOWN = 0,
     TOOL_FFMPEG,
@@ -132,6 +140,11 @@ typedef struct {
     uint8_t missing_count;
     const CommandTemplate *wrong_shape;      /* best template skipped for input shape */
     int wrong_shape_score;
+    uint32_t best_tokens;                    /* bit i: intent token i scored for `best` */
+    const CommandTemplate *alts[NL_MAX_ALTS];/* close runners-up that could also run */
+    int alt_scores[NL_MAX_ALTS];
+    uint8_t alt_count;
+    bool low_confidence;                     /* weak evidence: see NL_CONFIDENT_SCORE */
 } MatchResult;
 
 /* templates.c */
@@ -156,8 +169,20 @@ bool nl_inspect_json(const char *path, JsonInfo *info);
 /* matcher.c */
 int nl_keyword_score(const ParseContext *ctx, const CommandTemplate *tpl);
 void nl_match(const ParseContext *ctx, MatchResult *out, bool verbose);
+/* Same, considering only templates whose id starts with `only` (NULL: all)
+ * and without the no-keyword fallbacks. */
+void nl_match_only(const ParseContext *ctx, MatchResult *out, bool verbose, const char *only);
+
+/* jq_compound.c: "where .a is x and .b > 3". Writes the command to `out`.
+ * Returns false with `err` set on a refusal, or with `err` empty when the
+ * prompt has no conjunction to split at. */
+bool nl_jq_compound(const char *prompt, const JsonInfo *json, bool verbose,
+                    char *out, size_t out_size, char *err, size_t err_size);
 
 /* expander.c */
+/* Would the tool's expander accept this template for this request? (It
+ * refuses e.g. a git command that can't honour a date filter.) */
+bool nl_check(const ParseContext *ctx, const CommandTemplate *tpl);
 bool nl_expand(const ParseContext *ctx, const CommandTemplate *tpl,
                char *out, size_t out_size, char *err, size_t err_size);
 bool nl_shell_quote(const char *in, char *out, size_t out_size);

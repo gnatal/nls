@@ -549,6 +549,12 @@ static bool expand_range(const ParseContext *ctx, const char *p, const char *end
     return true;
 }
 
+bool nl_check(const ParseContext *ctx, const CommandTemplate *tpl) {
+    const ToolExpander *tx = expander_for(ctx->tool);
+    char err[16];
+    return !(tx && tx->check) || tx->check(ctx, tpl, err, sizeof err);
+}
+
 bool nl_expand(const ParseContext *ctx, const CommandTemplate *tpl,
                char *out, size_t out_size, char *err, size_t err_size) {
     Out o = { out, out_size, 0, false };

@@ -39,7 +39,7 @@ TAB=$(printf '\t')
 while IFS="$TAB" read -r prompt expected; do
     case "$prompt" in ''|'#'*) continue ;; esac
     make_tree
-    cmd=$("$NL" find "$prompt" 2>&1); rc=$?
+    cmd=$("$NL" find "$prompt" 2>/dev/null); rc=$?; [ $rc -ne 0 ] && cmd=$("$NL" find "$prompt" 2>&1)
     if [ "$expected" = "!ERR" ]; then
         if [ $rc -ne 0 ]; then pass=$((pass+1)); else
             fail=$((fail+1)); printf 'FAIL: nls find "%s" should be refused, got: %s\n' "$prompt" "$cmd"; fi

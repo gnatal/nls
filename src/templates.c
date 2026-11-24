@@ -314,6 +314,11 @@ const CommandTemplate NL_TEMPLATES[] = {
       KW("filter", "where", "whose", "is", "<=", "most", "maximum"), REQ(P, N),
       "jq 'map(select({JSON_PATH:0} <= {NUM:0})" JQ_PROJ "){COUNT}'" JQ_FILE, SHAPE_ARRAY },
 
+    { TOOL_JQ, "jq_filter_between", "Keep items whose field is between two numbers (inclusive)",
+      "items.json where .price is between 10 and 20",
+      KW("filter", "where", "whose", "is", "between", "within", "range", "inclusive"), REQ(P, N, N),
+      "jq 'map(select({JSON_PATH:0} >= {NUM:0} and {JSON_PATH:0} <= {NUM:1})" JQ_PROJ "){COUNT}'" JQ_FILE, SHAPE_ARRAY },
+
     { TOOL_JQ, "jq_filter_contains", "Keep items whose string field contains a substring",
       "users.json where .email contains 'gmail'",
       KW("filter", "where", "whose", "contains", "containing", "contain", "includes", "include", "has"),

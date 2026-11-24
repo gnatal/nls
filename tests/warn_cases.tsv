@@ -1,0 +1,21 @@
+# tool	prompt	text stderr must contain, or "-" for no warning at all
+# A tie between templates matched by different (non-filler) words is reported...
+ffmpeg	convert in.mp4 to wav	ffmpeg_audio
+curl	get https://example.com and save to out.html	curl_download
+curl	get https://example.com and save to out.html	low-confidence match: only "get" matched; ignored "save"
+# ...but a designed default (same words, first-listed template) is not.
+curl	get https://example.com	-
+git	what changed	-
+magick	rotate photo.jpg 90 degrees	-
+# Ignoring filler or generic words is no reason for doubt: "make" (gif) loses
+# to "smaller" (compress) on evidence, not list order, so nothing to report.
+ffmpeg	make video.mp4 smaller	-
+magick	make a favicon from logo.png	-
+jq	how many users in users.json have an email	-
+ffmpeg	show info about in.mp4	-
+# Clear requests stay quiet.
+ffmpeg	compress video.mp4	-
+jq	users.json where .age > 30 and .status is active	-
+jq	users.json where .a is 1 or .b is 2 and .c is 3	reading "and" before "or": .a is 1 or (.b is 2 and .c is 3)
+jq	users.json where .a is 1 and .b is 2	-
+jq	users.json where .age between 20 and 40	-

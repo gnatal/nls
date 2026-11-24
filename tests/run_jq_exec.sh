@@ -21,7 +21,7 @@ TAB=$(printf '\t')
 cd "$DIR/fixtures" || exit 1
 while IFS="$TAB" read -r prompt expected; do
     case "$prompt" in ''|'#'*) continue ;; esac
-    cmd=$("$NL" jq "$prompt" 2>&1); rc=$?
+    cmd=$("$NL" jq "$prompt" 2>/dev/null); rc=$?; [ $rc -ne 0 ] && cmd=$("$NL" jq "$prompt" 2>&1)
     if [ "$expected" = "!ERR" ]; then
         if [ $rc -ne 0 ]; then pass=$((pass+1)); else
             fail=$((fail+1)); printf 'FAIL: nls jq "%s" should be refused, got: %s\n' "$prompt" "$cmd"; fi

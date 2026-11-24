@@ -21,7 +21,7 @@ static const char *const JQ_RESERVED[] = {
     "to", "at", "above", "below", "over", "under", "least", "most", "bigger",
     "smaller", "larger", "higher", "lower", "older", "younger", "exactly",
     "in", "from", "a", "an", "the", "and", "or", "of", "is", "exceeds",
-    "after", "before", "where", "whose", "with", NULL
+    "after", "before", "where", "whose", "with", "between", "within", NULL
 };
 
 /* jq: a JSON path followed by one of these is a *condition* path */
@@ -32,7 +32,7 @@ static const char *const JQ_COND_FOLLOWERS[] = {
     "greater", "less", "more", "fewer", "above", "below", "over", "under",
     "bigger", "smaller", "larger", "higher", "lower", "older", "younger",
     "exceeds", "after", "before", "at", "exists", "exist", "present",
-    "defined", NULL
+    "defined", "between", "within", NULL
 };
 
 /* jq: a JSON path preceded by one of these is a *key* path (sort/max key),
@@ -170,4 +170,21 @@ void nl_lex_jq(ParseContext *ctx, const RawTok *toks, size_t count, const JsonIn
     }
 
     if (path_count > 1) reorder_jq_paths(ctx, path_cond);
+
+    /* "between 40 and 20": put the bounds in order so the range isn't empty */
+    bool range = false;
+    for (uint8_t i = 0; i < ctx->token_count; i++)
+        if (strcmp(ctx->intent_tokens[i], "between") == 0 ||
+            strcmp(ctx->intent_tokens[i], "within") == 0) range = true;
+    int a = -1, b = -1;
+    for (uint8_t i = 0; range && i < ctx->slot_count && b < 0; i++) {
+        if (ctx->slots[i].type != SLOT_NUM) continue;
+        if (a < 0) a = i; else b = i;
+    }
+    if (b >= 0 && is_number(ctx->slots[a].value, true) && is_number(ctx->slots[b].value, true) &&
+        strtod(ctx->slots[a].value, NULL) > strtod(ctx->slots[b].value, NULL)) {
+        const char *t = ctx->slots[a].value;
+        ctx->slots[a].value = ctx->slots[b].value;
+        ctx->slots[b].value = t;
+    }
 }

@@ -44,7 +44,11 @@ dedupe numbers.json	[ 1, 2, 3, [ 4, [ 5 ] ] ]
 combine lines of events.jsonl into an array	[ { "event": "login", "user": "ana" }, { "event": "logout", "user": "bob" } ]
 sort users.json by .age descending and get .name	[ "Carla", "Ana", "Dan", "Bob" ]
 get .name of the user with the highest .age in users.json	"Carla"
-get .name from users.json where .country is BR and .age > 40	!ERR
+get .name from users.json where .country is BR and .age > 40	[ "Carla" ]
+users.json where .country is BR or .country is US and get .name	[ "Ana", "Bob", "Carla" ]
+get .name from users.json where .country is PT or .age < 18	[ "Bob", "Dan" ]
+how many users in users.json where .age > 30 and .email exists	2
+get .name from users.json where status is active and age > 32	[ "Ana", "Carla" ]
 count users.json .status	[ { "key": "active", "count": 3 }, { "key": "inactive", "count": 1 } ]
 get .name from users.json	Ana Bob Carla Dan
 get .[0].name from users.json	Ana
@@ -58,3 +62,8 @@ list emails in users.json	ana@gmail.com bob@work.io carla@gmail.com null
 count users.json by status	[ { "key": "active", "count": 3 }, { "key": "inactive", "count": 1 } ]
 count users in data.json	2
 get names from users.json where age > 30	[ "Ana", "Carla" ]
+get .name from users.json where .age between 20 and 40	[ "Ana", "Dan" ]
+count users.json where .age is between 40 and 18	2
+get .name from users.json where .age between 30 and 40 and .status is active	[ "Ana", "Dan" ]
+get .name from users.json where .country is PT or .country is BR and .age > 40	[ "Carla", "Dan" ]
+get .name from users.json where .country is BR and .age > 40 or .country is US	[ "Bob", "Carla" ]
