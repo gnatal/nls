@@ -214,6 +214,7 @@ tar	what's inside backup.tar.gz	tar -tzvf backup.tar.gz
 tar	backup.tar.gz	tar -tzvf backup.tar.gz
 tar	list backup.tar.gz quietly	tar -tzf backup.tar.gz
 tar	list backup.tar.gz into dist	!ERR
+tar	compress src into ''	!ERR
 # --- git ---
 git	undo last 2 commits keep changes staged	git reset --soft HEAD~2
 git	commits touching src/lexer.c in last 7 days	git log --since='7 days ago' -p -- src/lexer.c

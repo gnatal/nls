@@ -6,7 +6,14 @@ wrong command that gets run.
 
 ## 1. Matching quality
 
-Both passes are done (see "Done"). Open issues go here as they turn up.
+Both passes are done (see "Done"). Open issues go here as they turn up:
+
+- 44 wordings that pick the wrong template, or none, are listed as known
+  misses at the end of `tests/paraphrase_cases.tsv`. Some are confidently
+  wrong: "what haven't I pushed" → `git revert`, "tag this commit v1.0" →
+  `git revert`, "turn down the volume of movie.mkv" → a vertical flip,
+  "stop the rebase in progress" → `git rm --cached`. The paraphrase runner
+  says when one starts matching.
 
 ## 2. Safety around `-x`
 
@@ -24,21 +31,16 @@ Done (see "Done"). Open issues go here as they turn up:
 
 ## 4. Engineering
 
-- **CI on every push and pull request.** The release workflow only tests
-  when a tag is pushed. A `ci.yml` that runs `make test` on macOS and Linux
-  for every push and pull request would catch regressions earlier.
-- **Paraphrase tests.** Keep a file of varied wordings for each template
-  that must keep matching it, so a template change can't quietly pull those
-  prompts elsewhere (like the GIF tie in section 1).
-- **Spot a stale installed binary.** A copy of nls installed with
-  `make install` keeps old behaviour after the source changes, which looks
-  like a regression (a fixed jq range bug kept showing). `nls --version`
-  could print the git commit it was built from, so the two can be compared.
-- **Fuzzing.** Run a libFuzzer/AFL harness on `nl_lex` + `nl_expand`. The
-  lexer works on fixed-size buffers, and an injection or overflow in the
-  quoting is the worst bug this tool could have.
+Mostly done (see "Done"). Open:
+
 - **Publish the Homebrew tap.** Create the `homebrew-tap` repo from
-  `packaging/homebrew/nls.rb` (see `RELEASING.md`).
+  `packaging/homebrew/nls.rb` (see `RELEASING.md`). This needs a pushed
+  `v0.1.0` tag first: the formula's `sha256` is that tag's source tarball.
+- The fuzzer's oracle allows a few characters per tool that the builders
+  emit themselves (`builder_specials()` in `tests/fuzz/fuzz_nls.c`: find's
+  `\(`, magick's `&&`, git's `"$(...)"`, curl's `"$TOKEN"`). It doesn't
+  check those for that tool. A stricter oracle would follow each slot value
+  through the expander instead.
 
 ## 5. More tools
 
@@ -93,6 +95,21 @@ makes ties more likely.
   `nls --shell zsh|bash` binds Ctrl+G to turn the typed request into the
   command on the line. bash/zsh completions and a man page are installed by
   `make install`, `install.sh` and the Homebrew formula.
+
+- **Engineering.** `.github/workflows/ci.yml` runs `make test` on Linux
+  and macOS for every push and pull request, plus `make test-sanitize`
+  (ASan + UBSan) and a two-minute libFuzzer run. `tests/paraphrase_cases.tsv`
+  holds about 400 varied wordings, at least one per template, that must keep
+  picking their template; known misses are tracked there too. `nls
+  --version` prints the commit it was built from, and `make install` warns
+  when another `nls` comes first on `PATH`. `tests/fuzz/fuzz_nls.c` fuzzes
+  lex → match → expand (every expandable template and its dry run) →
+  `--explain`, failing on unbalanced quotes, control characters, or an
+  unquoted shell character the template didn't put there (`make fuzz`,
+  `make fuzz-check` without libFuzzer). Its first runs found two bugs: an
+  escape sequence passing into the printed command, and a read before an
+  empty tar `into ''` name. Both are fixed and kept in
+  `tests/fuzz/regressions/`.
 
 - **Per-tool modules.** `lexer.c` and `expander.c` were split into
   `lexer_<tool>.c` / `expander_<tool>.c` behind small interfaces

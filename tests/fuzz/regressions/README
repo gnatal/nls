@@ -1,0 +1,9 @@
+Fuzzer inputs that once failed, kept so they are replayed by every
+`make fuzz-check` / `make fuzz` (make_corpus.sh copies them into the corpus).
+Byte 0 is the tool (tool id - 1: 0 ffmpeg, 1 jq, 2 grep, 3 find, 4 tar,
+5 git, 6 curl, 7 magick; libFuzzer's own inputs use any byte, modulo 8).
+
+tar-empty-dest        `into ""` gave an empty DEST: tar_derive_archive read
+                      dest[-1] (UBSan, found by libFuzzer)
+find-escape-in-name   an ESC sequence in a quoted file name reached the
+                      printed command (oracle: control character)

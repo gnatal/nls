@@ -86,6 +86,33 @@ The release workflow uses the section matching the tag as the release notes.
 - A request quoted as a whole (`'cut in.mp4 from 1:00 to 2:00'`) is
   unquoted, so its words are read as words.
 
+### Engineering
+
+- CI: `make test` runs on Linux and macOS for every push and pull request,
+  along with `make test-sanitize` (every suite against an ASan + UBSan
+  build) and a two-minute libFuzzer run.
+- Paraphrase tests (`tests/paraphrase_cases.tsv`): about 400 varied
+  wordings, at least one for every template, must keep picking their
+  template. Wordings that don't yet match are listed as known misses, and
+  the runner reports when one starts to.
+- Fuzzing (`make fuzz`, `make fuzz-check`): the lexer, matcher, expanders and
+  `--explain` run under ASan + UBSan, with an oracle that fails on an
+  unquoted shell character the template didn't produce. Failing inputs are
+  kept in `tests/fuzz/regressions/`.
+- `make install` warns when another `nls` comes first on `PATH`, so an older
+  copy isn't mistaken for a regression. It also prints the installed
+  version (with its commit).
+
+### Fixes
+
+- Control characters in a request (an escape sequence in a file name) no
+  longer reach the printed command. They separate words like spaces. Found
+  by the fuzzer.
+- tar: `compress src into ''` read before the start of the empty name. It is
+  now refused. Found by the fuzzer.
+- The static Linux build no longer fails with GCC 14 (`-Wformat-truncation`
+  in `expander_tar.c`).
+
 ## [0.1.0] - 2026-11-24
 
 First release.

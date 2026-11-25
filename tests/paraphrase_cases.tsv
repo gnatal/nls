@@ -1,0 +1,484 @@
+# tool<TAB>template id<TAB>prompt  (see run_paraphrase_tests.sh)
+#
+# Varied wordings of each template's request. nls must keep picking that
+# template for every one of them: if a keyword or scoring change pulls one
+# away, this fails even though cases.tsv (one wording per command) passes.
+# A tool of "-" leaves the tool out, so inference is checked too. Prompts
+# run from the repository root (grep's "in src/" needs the folder).
+#
+# Add a wording when a user's phrasing turns out to work; add it under
+# "Known misses" (tool prefixed with "!") when it doesn't yet.
+
+# ffmpeg
+ffmpeg	ffmpeg_cut_scale	trim talk.mp4 between 1:00 and 2:00 and resize to 480p
+ffmpeg	ffmpeg_cut_scale	clip movie.mkv from 00:01:00 to 00:02:30 scaled down to 720p
+ffmpeg	ffmpeg_cut	clip talk.mp4 between 00:30 and 01:15
+ffmpeg	ffmpeg_cut	I need the part of movie.mkv from 1:00 to 1:45
+ffmpeg	ffmpeg_cut	trim lecture.mp4 from 5 minutes to 10 minutes
+ffmpeg	ffmpeg_cut_first	only keep the first 2 minutes of lecture.mp4
+ffmpeg	ffmpeg_cut_first	trim talk.mp4 to the first 45 seconds
+ffmpeg	ffmpeg_cut_last	keep only the final 20 seconds of talk.mp4
+ffmpeg	ffmpeg_cut_last	trim lecture.mp4 to its last 30s
+ffmpeg	ffmpeg_seek	cut movie.mkv starting at 00:05:00
+ffmpeg	ffmpeg_seek	everything in talk.mp4 after 2:00 onwards
+ffmpeg	ffmpeg_h265	re-encode movie.mkv with hevc
+ffmpeg	ffmpeg_h265	encode talk.mp4 as x265
+ffmpeg	ffmpeg_gif_cut	animated gif of movie.mkv between 1:00 and 1:05
+ffmpeg	ffmpeg_gif	turn screen.mov into a gif
+ffmpeg	ffmpeg_gif	make an animated gif out of screen.mov at 15fps
+ffmpeg	ffmpeg_scale	resize talk.mp4 to 1080p
+ffmpeg	ffmpeg_scale	downscale movie.mkv to 640x360
+ffmpeg	ffmpeg_compress	shrink talk.mp4
+ffmpeg	ffmpeg_compress	reduce the file size of movie.mkv
+ffmpeg	ffmpeg_compress	make talk.mp4 smaller
+ffmpeg	ffmpeg_thumbnail	grab a frame from talk.mp4 at 1:23
+ffmpeg	ffmpeg_thumbnail	thumbnail of movie.mkv at 00:10
+ffmpeg	ffmpeg_frames	dump frames of talk.mp4 at 1 fps
+ffmpeg	ffmpeg_frames	export every frame of clip.mp4 as images at 5fps
+ffmpeg	ffmpeg_audio_mp3	pull the audio out of talk.mp4 as mp3
+ffmpeg	ffmpeg_audio_mp3	extract the soundtrack of movie.mkv to mp3 at 256k
+ffmpeg	ffmpeg_audio	extract audio from talk.mp4 as wav
+ffmpeg	ffmpeg_audio	get the audio of movie.mkv as aac
+ffmpeg	ffmpeg_mute	strip the audio from talk.mp4
+ffmpeg	ffmpeg_mute	mute movie.mkv
+ffmpeg	ffmpeg_remux	change the container of movie.mkv to mp4 without re-encoding
+ffmpeg	ffmpeg_remux	remux talk.mov into mkv
+ffmpeg	ffmpeg_convert	turn movie.mkv into mp4
+ffmpeg	ffmpeg_convert	convert talk.avi to webm
+ffmpeg	ffmpeg_convert_to	convert movie.mkv into final.mp4
+ffmpeg	ffmpeg_convert_to	turn talk.avi into talk2.webm
+ffmpeg	ffmpeg_fps	set the frame rate of talk.mp4 to 24fps
+ffmpeg	ffmpeg_fps	convert movie.mkv to 60 fps
+ffmpeg	ffmpeg_speed	make talk.mp4 2x faster
+ffmpeg	ffmpeg_speed	play movie.mkv at 1.25x speed
+ffmpeg	ffmpeg_reverse	play talk.mp4 backwards
+ffmpeg	ffmpeg_reverse	reverse the video movie.mkv
+ffmpeg	ffmpeg_rotate_cw	rotate talk.mp4 90 degrees clockwise
+ffmpeg	ffmpeg_rotate_cw	turn movie.mkv clockwise
+ffmpeg	ffmpeg_rotate_ccw	rotate talk.mp4 anticlockwise
+ffmpeg	ffmpeg_rotate_ccw	rotate movie.mkv counter-clockwise
+ffmpeg	ffmpeg_hflip	mirror talk.mp4
+ffmpeg	ffmpeg_vflip	flip talk.mp4 vertically
+ffmpeg	ffmpeg_vflip	turn movie.mkv upside down
+ffmpeg	ffmpeg_grayscale	convert talk.mp4 to grayscale
+ffmpeg	ffmpeg_grayscale	make movie.mkv greyscale
+ffmpeg	ffmpeg_louder	boost the volume of talk.mp4 by 1.5x
+ffmpeg	ffmpeg_louder	increase the volume of movie.mkv 3x
+ffmpeg	ffmpeg_quieter	lower the volume of talk.mp4
+ffmpeg	ffmpeg_normalize	normalize the loudness of talk.mp4
+ffmpeg	ffmpeg_normalize	even out the audio levels in movie.mkv
+ffmpeg	ffmpeg_info	what codec is talk.mp4
+ffmpeg	ffmpeg_info	print the metadata of movie.mkv
+
+# jq
+jq	jq_paths	what does the structure of config.json look like
+jq	jq_pretty	format data.json nicely
+jq	jq_pretty	prettify config.json
+jq	jq_compact	compact data.json onto one line
+jq	jq_compact	compress config.json to a single line
+jq	jq_validate	is data.json valid json
+jq	jq_validate	check that config.json parses
+jq	jq_keys	what keys does config.json have
+jq	jq_keys_path	keys of .settings in config.json
+jq	jq_type	type of config.json
+jq	jq_type_path	what type is .count in data.json
+jq	jq_type_path	type of .settings in config.json
+jq	jq_length	count the items in data.json
+jq	jq_length	length of data.json
+jq	jq_length_path	how many .items are in data.json
+jq	jq_length_path	length of .users in data.json
+jq	jq_count_by	count items.json grouped by .category
+jq	jq_first_n	show the first 10 entries in data.json
+jq	jq_first_n	top 3 items of data.json
+jq	jq_first	the first entry in data.json
+jq	jq_last_n	the last 5 items in data.json
+jq	jq_last_n	show the final 2 entries of data.json
+jq	jq_last	final element in data.json
+jq	jq_filter_eq_str	users in users.json whose .status is 'active'
+jq	jq_filter_eq_str	select from users.json where .role is admin
+jq	jq_filter_eq_num	entries in users.json where .age is 42
+jq	jq_filter_eq_num	items.json where .stock is 0
+jq	jq_filter_ne_str	users in users.json whose .country is not 'US'
+jq	jq_filter_ne_str	items.json where .status is not 'sold'
+jq	jq_filter_ne_num	items.json where .stock is not 0
+jq	jq_filter_gt	users.json where .age is greater than 21
+jq	jq_filter_gt	items in items.json whose .price is more than 100
+jq	jq_filter_lt	users.json where .age is less than 13
+jq	jq_filter_lt	items.json whose .price is under 5
+jq	jq_filter_gte	users.json where .age >= 18
+jq	jq_filter_gte	items.json where .stock is at least 1
+jq	jq_filter_lte	items.json where .price <= 50
+jq	jq_filter_lte	users.json where .age is at most 65
+jq	jq_filter_between	users.json where .age is between 18 and 30
+jq	jq_filter_between	items.json where .price is from 5 to 15
+jq	jq_filter_outside	users.json where .age is outside 18 and 65
+jq	jq_filter_outside	items.json where .price is not between 5 and 50
+jq	jq_filter_contains	users.json where .name contains 'smith'
+jq	jq_filter_contains	items.json whose .title contains 'pro'
+jq	jq_filter_regex	users.json where .email matches '@example\.com$'
+jq	jq_filter_regex	items.json whose .sku matches '^AB'
+jq	jq_filter_exists	users.json where .phone exists
+jq	jq_filter_exists	users in users.json that have .avatar
+jq	jq_filter_missing	users in users.json without a .phone
+jq	jq_filter_missing	items.json entries missing .price
+jq	jq_search	find 'error' anywhere in data.json
+jq	jq_search	search config.json for 'localhost'
+jq	jq_get	extract .version from package.json
+jq	jq_get	show .config.port in data.json
+jq	jq_get	read .name from package.json
+jq	jq_each	the .name of every user in users.json
+jq	jq_each	list .id of each item in items.json
+jq	jq_sort_by	order users.json by .name
+jq	jq_sort_by	sort items.json by .price ascending
+jq	jq_sort_desc	order users.json by .age in reverse
+jq	jq_sort	sort the array in data.json
+jq	jq_sort	order numbers.json
+jq	jq_group	bucket users.json by .country
+jq	jq_unique_by	distinct .role values in users.json
+jq	jq_unique	remove duplicates from data.json
+jq	jq_unique	unique values in tags.json
+jq	jq_sum	total of .amount in orders.json
+jq	jq_sum	add up .price in items.json
+jq	jq_avg	mean .price in items.json
+jq	jq_avg	what is the average .age in users.json
+jq	jq_max	user with the max .age in users.json
+jq	jq_min	item with the smallest .stock in items.json
+jq	jq_delete	remove .debug from config.json
+jq	jq_delete	drop .metadata from data.json
+jq	jq_delete_each	delete .password from every user in users.json
+jq	jq_delete_each	strip .internal from each item in items.json
+jq	jq_csv_fields	export users.json as csv with .id .name
+jq	jq_csv_fields	users.json to csv using .email and .role
+jq	jq_csv	turn users.json into csv
+jq	jq_csv	export items.json to csv
+jq	jq_tsv	export users.json as tsv
+jq	jq_tsv	turn items.json into tab separated values
+jq	jq_flatten	flatten the nested arrays in data.json
+jq	jq_flatten	flatten lists.json
+jq	jq_slurp	slurp log.ndjson into an array
+
+# grep
+grep	grep_search	look for 'FIXME' in src/
+grep	grep_search	search for 'password' in config.yml
+grep	grep_search	find lines with 'error' in app.log
+grep	grep_files	which files mention 'deprecated' in src/
+grep	grep_files	list files containing 'TODO' in lib/
+grep	grep_count	how many lines contain 'WARN' in app.log
+grep	grep_count	count lines with 'error' in server.log
+grep	grep_count_total	how many times does 'error' occur in app.log
+grep	grep_count_total	total number of occurrences of 'TODO' in src/
+grep	grep_only	print only the matched text of '[0-9]+' in app.log
+grep	grep_only	show just the matching part of 'id=[0-9]+' in app.log
+grep	grep_after	show 'Exception' with 3 lines after it in app.log
+grep	grep_after	print 4 lines after each 'panic' in server.log
+grep	grep_before	show 3 lines before 'error' in app.log
+grep	grep_before	print 2 lines preceding 'FATAL' in server.log
+grep	grep_context	show 'error' with 2 lines of context in app.log
+grep	grep_context	search 'timeout' in server.log with 5 lines around each match
+grep	grep_max	the first 3 matches of 'error' in app.log
+
+# find
+find	find_files	python files in src
+find	find_files	files modified in the last 3 days
+find	find_files	files bigger than 50MB in ~/Downloads
+find	find_empty	find empty files in .
+find	find_empty	empty folders under src
+find	find_count	how many python files are in src
+find	find_count	count the files in docs
+find	find_largest	the 5 biggest files in .
+find	find_largest	largest files in ~/Downloads
+find	find_delete	remove all .tmp files
+find	find_delete	delete log files older than 30 days in logs/
+find	find_delete_dirs	delete every __pycache__ directory
+find	find_delete_dirs	remove all build directories under src
+find	find_delete_empty	remove empty folders in src
+find	find_delete_empty	delete all empty directories
+
+# tar
+tar	tar_create	create backup.tar.gz from src/
+tar	tar_create	archive docs/ into docs.tar.xz
+tar	tar_create	tar up src/ excluding node_modules
+tar	tar_list	what is inside backup.tar.gz
+tar	tar_list	show the files in archive.tgz
+tar	tar_extract	unpack backup.tar.gz
+tar	tar_extract	extract archive.tgz to /tmp/out
+tar	tar_extract	untar release.tar.bz2
+
+# git
+git	git_unstage	unstage README.md
+git	git_undo_soft	undo the last commit but keep the changes staged
+git	git_undo_soft	uncommit the last 3 commits and keep them staged
+git	git_undo_mixed	undo my last commit and unstage the changes
+git	git_undo_hard	discard the last commit completely
+git	git_revert	revert the last 2 commits
+git	git_revert	revert commit a1b2c3d
+git	git_undo_reset	undo the reset
+git	git_undo_reset	undo my last git reset
+git	git_undo_merge	undo the last merge
+git	git_undo_merge	undo that rebase
+git	git_undo_amend	undo my last amend
+git	git_squash	combine the last 2 commits
+git	git_rebase_interactive	interactive rebase of the last 3 commits
+git	git_rebase_interactive	reword the last 4 commits interactively
+git	git_rebase	rebase my branch on main
+git	git_rebase	rebase onto origin/develop
+git	git_pull_rebase	pull and rebase
+git	git_pull_rebase	update my branch with a rebase pull
+git	git_amend	add README.md to my last commit
+git	git_amend	amend the last commit with src/app.c
+git	git_amend_message	fix the last commit message to 'add tests'
+git	git_amend_message	reword the last commit as 'fix typo'
+git	git_commit	commit 'update docs'
+git	git_commit_all	commit everything with message 'release prep'
+git	git_commit_all	stage all and commit with message 'cleanup'
+git	git_log	show commits from the last 3 days
+git	git_log	log of commits by bob since yesterday
+git	git_log	my commits this week
+git	git_count	how many commits did bob make in the last 30 days
+git	git_diff	show the diff of the last commit
+git	git_diff	what changed between main and feature-x
+git	git_diff	show my unstaged changes
+git	git_diff_staged	what is staged
+git	git_diff_staged	diff of the staged changes
+git	git_diff_names	which files changed in the last commit
+git	git_diff_names	list the files changed between main and feature-x
+git	git_log_patch	history of src/app.c with diffs since last week
+git	git_log_patch	show changes to README.md in the last 10 days
+git	git_log_follow	history of src/app.c following renames
+git	git_log_follow	full history of README.md across renames
+git	git_pickaxe	which commit introduced 'parse_args'
+git	git_pickaxe	find the commit that removed 'old_api'
+git	git_file_added	when was src/app.c added
+git	git_file_added	commit that created README.md
+git	git_file_deleted	which commit removed src/legacy.c
+git	git_file_deleted	when was docs/old.md deleted
+git	git_log_message	commits whose message mentions 'login'
+git	git_log_message	find commits with 'hotfix' in the message
+git	git_log_range	commits in feature-x that are not in main
+git	git_log_range	what's on develop but not on main
+git	git_unpushed	commits not pushed yet
+git	git_unpushed	which commits haven't been pushed
+git	git_unpushed	unpushed commits
+git	git_unpulled	what commits on the remote have I not pulled
+git	git_unpulled	incoming commits I haven't pulled yet
+git	git_blame	who wrote lines 5 to 15 of src/app.c
+git	git_blame	blame README.md
+git	git_show_commit	show commit a1b2c3d
+git	git_show_commit	what did the last commit change
+git	git_show_file	show README.md as it was 2 commits ago
+git	git_show_file	print src/app.c from main
+git	git_restore_from	restore src/app.c from main
+git	git_restore_from	bring back README.md as it was 3 commits ago
+git	git_restore_deleted	bring back the deleted file src/legacy.c
+git	git_restore_deleted	recover deleted docs/old.md
+git	git_discard	throw away my changes to src/app.c
+git	git_discard	revert local changes to README.md
+git	git_untrack	untrack config.local.yml
+git	git_untrack	stop tracking secrets.env but keep the file
+git	git_clean_dry	what untracked files would git clean remove
+git	git_clean_dry	preview deleting untracked files
+git	git_clean	remove all untracked files
+git	git_clean	clean untracked files and directories
+git	git_clean_ignored	remove untracked and ignored files
+git	git_clean_ignored	delete all untracked files including ignored ones
+git	git_branch_create	create a branch called fix-login
+git	git_branch_create	make a new branch hotfix from main
+git	git_switch_prev	go back to the last branch
+git	git_switch_prev	switch to the previous branch
+git	git_switch	switch to branch develop
+git	git_switch	checkout feature-x
+git	git_branch_delete	remove branch fix-login
+git	git_branch_delete	delete the branch old-feature
+git	git_branch_delete_force	force delete the branch experiment
+git	git_branch_delete_remote	delete the remote branch feature-x
+git	git_branch_delete_remote	remove branch old-feature from origin
+git	git_branch_rename	rename the branch fix to bugfix
+git	git_branch_rename	rename branch dev to develop
+git	git_branch_list	show branches sorted by last commit
+git	git_branch_list	list all branches
+git	git_branch_merged	which branches are merged into main
+git	git_branch_merged	list merged branches
+git	git_branch_delete_merged	clean up merged branches
+git	git_branch_delete_merged	remove all branches already merged
+git	git_merge	merge develop into main
+git	git_merge	merge feature-x
+git	git_merge_squash	squash and merge feature-x
+git	git_merge_squash	merge feature-x as one commit
+git	git_merge_abort	cancel the merge
+git	git_merge_abort	stop this merge
+git	git_rebase_abort	cancel the rebase
+git	git_cherry_pick	apply commit a1b2c3d to this branch
+git	git_cherry_pick	cherry pick 9f8e7d6
+git	git_push_upstream	push this branch and track it on origin
+git	git_push_upstream	push and set the upstream
+git	git_push_force	push with force-with-lease
+git	git_tag	create tag v2.0.0
+git	git_tag_list	show all tags
+git	git_tag_delete	remove tag v1.0
+git	git_tag_delete	delete the tag v2.0.0
+git	git_tag_push	push my tags
+git	git_stash	stash my work
+git	git_stash	stash the changes with message 'half done'
+git	git_stash_untracked	stash including untracked files
+git	git_stash_untracked	stash all changes and new files
+git	git_stash_pop	restore my stash
+git	git_stash_pop	unstash
+git	git_stash_apply	apply the stash without dropping it
+git	git_stash_apply	apply stash but keep it in the list
+git	git_stash_list	show my stashes
+git	git_stash_list	what's in the stash list
+git	git_reflog	show the reflog
+git	git_reflog	recover a lost commit
+
+# curl
+curl	curl_get	fetch https://example.com/page
+curl	curl_get	request https://api.example.com/status
+curl	curl_get_json	fetch json from https://api.example.com/items
+curl	curl_get_json	get https://api.example.com/users as json
+curl	curl_post	send data.json to https://api.example.com/items
+curl	curl_post	post '{"name":"bob"}' to https://api.example.com/users
+curl	curl_put	put data.json at https://api.example.com/items/1
+curl	curl_put	replace https://api.example.com/items/1 with item.json
+curl	curl_patch	patch https://api.example.com/users/1 with patch.json
+curl	curl_delete	delete https://api.example.com/items/9
+curl	curl_status	what status code does https://example.com return
+curl	curl_status	is https://example.com up
+curl	curl_headers	get the headers of https://example.com
+curl	curl_headers	print the response headers from https://api.example.com
+curl	curl_download	download https://example.com/archive.tar.gz
+curl	curl_download	save https://example.com/report.pdf to report.pdf
+curl	curl_resume	continue the download of https://example.com/big.iso
+curl	curl_resume	resume https://example.com/file.zip
+curl	curl_upload	upload report.pdf to https://example.com/files
+curl	curl_upload	send the file photo.jpg as a form upload to https://example.com/upload
+curl	curl_timing	how fast is https://api.example.com
+curl	curl_verbose	debug https://api.example.com/users
+curl	curl_verbose	trace https://example.com
+
+# magick
+magick	magick_resize	resize photo.jpg to 1024 wide
+magick	magick_resize	scale logo.png to 50%
+magick	magick_resize	make photo.jpg 800x600
+magick	magick_convert	convert photo.png to jpg
+magick	magick_convert	turn logo.png into webp
+magick	magick_convert_to	convert logo.png into logo.ico
+magick	magick_convert_to	save photo.png as photo.jpg
+magick	magick_compress	shrink photo.jpg
+magick	magick_strip	strip the metadata from photo.jpg
+magick	magick_strip	remove gps data from photo.jpg
+magick	magick_transparent	remove the white background from logo.png
+magick	magick_transparent	make the background of icon.png transparent
+magick	magick_flatten	flatten logo.png onto a black background
+magick	magick_flatten	give logo.png a white background
+magick	magick_flatten_white	flatten logo.png
+magick	magick_rotate	rotate photo.jpg by 180 degrees
+magick	magick_rotate	rotate logo.png 45 degrees clockwise
+magick	magick_rotate_ccw	rotate photo.jpg anticlockwise
+magick	magick_rotate_ccw	turn photo.jpg counter-clockwise
+magick	magick_auto_orient	auto rotate photo.jpg using exif
+magick	magick_auto_orient	fix the rotation of photo.jpg
+magick	magick_flop	flip photo.jpg horizontally
+magick	magick_flop	mirror logo.png
+magick	magick_flip	flip photo.jpg vertically
+magick	magick_flip	turn logo.png upside down
+magick	magick_grayscale	convert photo.jpg to grayscale
+magick	magick_grayscale	make photo.jpg greyscale
+magick	magick_crop	crop photo.jpg to 1200x800
+magick	magick_crop	crop logo.png to 50%
+magick	magick_trim	trim logo.png
+magick	magick_trim	remove the border around scan.png
+magick	magick_pad	pad logo.png to 512x512
+magick	magick_pad	extend photo.jpg to 1920x1080 with white
+magick	magick_thumbnail	create a 128x128 thumbnail of photo.jpg
+magick	magick_thumbnail	thumbnail photo.jpg at 300x300
+magick	magick_blur	blur photo.jpg
+magick	magick_blur	apply a gaussian blur of 4 to photo.jpg
+magick	magick_sharpen	sharpen scan.png
+magick	magick_sharpen	make photo.jpg sharper
+magick	magick_border	put a 5px black border around photo.jpg
+magick	magick_border	add a red border to logo.png
+magick	magick_append	join a.png and b.png side by side into ab.png
+magick	magick_append_v	stack top.png bottom.png into out.png
+magick	magick_append_v	combine a.png b.png vertically into col.png
+magick	magick_favicon	favicon from icon.png
+magick	magick_gif	animate 'frames/*.png' into anim.gif
+magick	magick_gif	combine a.png b.png c.png into anim.gif at 5fps
+magick	magick_batch_convert	convert every jpg in photos/ to png
+magick	magick_batch_convert	turn all png files in icons/ into webp
+magick	magick_batch_resize	resize every png in icons/ to 64x64 into small/
+magick	magick_batch_resize	resize all jpg files in photos/ to 50%
+magick	magick_size	what size is photo.jpg
+magick	magick_size	how big is logo.png in pixels
+magick	magick_info	identify photo.jpg
+magick	magick_info	describe logo.png
+magick	magick_info_verbose	print every property of photo.jpg
+magick	magick_info_verbose	show the full exif of photo.jpg
+
+# no tool given
+-	ffmpeg_cut	cut talk.mp4 from 00:10 to 00:25
+-	ffmpeg_compress	compress movie.mkv
+-	ffmpeg_gif	turn screen.mov into a gif
+-	jq_get	get .version from package.json
+-	jq_filter_gt	users.json where .age > 30
+-	jq_pretty	pretty print config.json
+-	grep_search	search for 'TODO' in src/
+-	grep_count	count lines matching 'ERROR' in app.log
+-	find_largest	10 largest files in .
+-	find_delete	delete .DS_Store files recursively
+-	tar_extract	extract backup.tar.gz
+-	tar_list	list contents of archive.tgz
+-	git_undo_soft	undo the last commit and keep changes staged
+-	git_stash_pop	pop the stash
+-	git_branch_create	create branch feature-y from main
+-	curl_get	get https://example.com
+-	curl_post	post data.json to https://api.example.com/items
+-	magick_resize	resize photo.jpg to width 800
+-	magick_favicon	make a favicon from logo.png
+
+# Known misses: wordings that should pick the template but don't yet (they
+# get another template, or none). Not failures; the runner says when one
+# starts matching, so the "!" can come off. See roadmap.md, section 1.
+!ffmpeg	ffmpeg_seek	skip the first 1:30 of talk.mp4
+!ffmpeg	ffmpeg_gif_cut	turn talk.mp4 from 00:10 to 00:14 into a gif
+!ffmpeg	ffmpeg_hflip	flip movie.mkv left to right
+!ffmpeg	ffmpeg_quieter	turn down the volume of movie.mkv
+!ffmpeg	ffmpeg_info	how long is talk.mp4
+!jq	jq_paths	show all paths in data.json
+!jq	jq_keys	show the top level keys of data.json
+!jq	jq_keys_path	what fields does .user have in data.json
+!jq	jq_type	what kind of value is data.json
+!jq	jq_count_by	how many users.json entries per .role
+!jq	jq_first	show the first element of data.json
+!jq	jq_last	show the last entry of data.json
+!jq	jq_sort_desc	sort items.json by .price from highest to lowest
+!jq	jq_group	group items.json by .category
+!jq	jq_unique_by	list unique .category in items.json
+!jq	jq_max	which item in items.json has the largest .price
+!jq	jq_min	cheapest item in items.json by .price
+!jq	jq_slurp	read events.jsonl into one array
+!grep	grep_max	stop after 10 matches of 'WARN' in server.log
+!git	git_unstage	remove src/app.c from the staging area
+!git	git_undo_mixed	uncommit the last 2 commits and keep the changes unstaged
+!git	git_undo_hard	throw away my last 2 commits and their changes
+!git	git_squash	squash the last 3 commits into one
+!git	git_commit	commit staged changes with the message 'add parser'
+!git	git_count	count commits since last month
+!git	git_unpushed	what haven't I pushed
+!git	git_unpushed	show my unpushed commits
+!git	git_branch_delete_force	delete branch spike even if not merged
+!git	git_rebase_abort	stop the rebase in progress
+!git	git_push_force	force push my branch
+!git	git_tag	tag this commit v1.0
+!git	git_tag_list	what tags exist
+!git	git_tag_push	push all tags to origin
+!curl	curl_patch	send a patch of changes.json to https://api.example.com/items/7
+!curl	curl_delete	send a delete request to https://api.example.com/users/3
+!curl	curl_timing	time the request to https://example.com
+!curl	curl_verbose	show verbose output for https://example.com
+!curl	curl_verbose	debug the request to https://api.example.com
+!magick	magick_compress	reduce the file size of hero.png
+!magick	magick_flatten_white	get rid of the transparency in icon.png
+!magick	magick_append	put left.jpg right.jpg next to each other into both.jpg
+!magick	magick_favicon	create a favicon.ico from logo.png
+!curl	curl_verbose	verbose request to https://example.com
+!git	git_unpushed	local commits not on the remote

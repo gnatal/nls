@@ -11,7 +11,10 @@ Releases are built and published by `.github/workflows/release.yml` when a
 | `SHA256SUMS` | checksums of the above (`install.sh` verifies them) |
 
 The full test suite (`make test`) runs on every platform before anything is
-published. The execution suites skip tools a runner doesn't have.
+published. The execution suites skip tools a runner doesn't have. Between
+releases, `.github/workflows/ci.yml` runs the same suite on Linux and macOS
+for every push and pull request, along with a sanitizer build and a short
+fuzzing run. A tag whose commit is green there should pass here too.
 
 ## Versions between releases
 

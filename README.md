@@ -49,6 +49,8 @@ make test     # all tests (each execution suite skips if its tool is missing):
               #  - -x: answers at the prompt, dry runs
               #    and --force, in a temp git repo      tests/x_cases.tsv
               #  - tool inference                       tests/infer_cases.tsv
+              #  - paraphrases: varied wordings must
+              #    keep picking their template          tests/paraphrase_cases.tsv
               #  - --explain: every golden command and
               #    template example fully explained     tests/explain_cases.tsv
               #  - shell integration, typed into zsh / bash
@@ -64,11 +66,34 @@ make test     # all tests (each execution suite skips if its tool is missing):
               #    verified with magick identify  tests/magick_exec_cases.tsv
 make test-ffmpeg  # only the ffmpeg execution tests (~10 s)
 make test-magick  # only the magick execution tests
+make test-paraphrase  # only the paraphrase tests
+make test-sanitize    # every suite against an AddressSanitizer + UBSan build
+make fuzz-check   # fuzz the lexer and expanders: replay the corpus, then
+                  # 200k random mutations, under ASan + UBSan (any compiler)
+make fuzz         # coverage-guided libFuzzer run for FUZZ_TIME=60 seconds
+                  # (needs clang with libFuzzer: Linux, or Homebrew llvm via
+                  # FUZZ_CC=$(brew --prefix llvm)/bin/clang)
 make install  # installs to ~/.local/bin/nls (no sudo needed), plus the man
               # page and completions under ~/.local/share
 ```
 
-The install step prints a one-line fix if `~/.local/bin` isn't on your `PATH`. Options:
+CI (`.github/workflows/ci.yml`) runs `make test` on Linux and macOS for every
+push and pull request, plus `make test-sanitize` and a two-minute `make fuzz`.
+
+The fuzzer (`tests/fuzz/fuzz_nls.c`) feeds each input through the lexer,
+matcher, every expandable template, its dry run and `--explain`. Besides
+crashes and undefined behaviour, it fails when a generated command has
+unbalanced quotes, a control character, or an unquoted shell character
+(`;`, `|`, `$(`, a backquote, …) that the template didn't put there: a way
+for the request to inject a command. A failing input is saved
+(`build/crash-*`, or `crash-input` for `fuzz-check`); once fixed, add it to
+`tests/fuzz/regressions/` so it is replayed every run.
+
+The install step prints a one-line fix if `~/.local/bin` isn't on your `PATH`,
+and a warning if another `nls` comes first on it (an older copy keeps the old
+behaviour). Each build reports its commit (`nls --version` →
+`nls 0.1.0+16.g2827e3e`), so you can compare that copy with your checkout
+(`make build-version`). Options:
 
 ```sh
 make install BIN_NAME=other        # install under a different command name
@@ -506,12 +531,20 @@ Run `nls --list` to see all templates.
   `mogrify` without the `magick` prefix.
 - JSON paths may only contain `[A-Za-z0-9_.[]?]`. A prompt like
   `get .a;rm in data.json` is rejected.
+- Control characters in a request (anything below space except tab) separate
+  words like spaces, even inside quotes. An escape sequence in a file name
+  therefore can't reach the printed command and redraw the terminal before
+  `-x` asks.
+- All of this is fuzzed (see [Build](#build)): an unquoted shell character
+  in a generated command that the template didn't put there fails the fuzzer.
 
 ## Adding templates
 
 Add an entry to `NL_TEMPLATES[]` in `src/templates.c`, then add a line to
-`tests/cases.tsv` and run `make test`. Use `nls -v` to see why a prompt
-matched (or didn't match) a template.
+`tests/cases.tsv` and a few different wordings of the request to
+`tests/paraphrase_cases.tsv`, then run `make test`. The paraphrase tests fail
+if a change pulls any template's wordings to another template. Use `nls -v` to
+see why a prompt matched (or didn't match) a template.
 
 ## Adding a tool
 

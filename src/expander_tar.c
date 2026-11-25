@@ -76,7 +76,7 @@ static bool tar_derive_archive(const ParseContext *ctx, char comp, char *dst, si
     const char *dir = "";
     char stem[NL_MAX_INPUT];
     size_t dl = dest ? strlen(dest) : 0;
-    if (dest && dest[dl - 1] != '/') {
+    if (dest && dl > 0 && dest[dl - 1] != '/') {
         if (has_foreign_ext(dest)) {
             set_err(err, err_size, "'%s' isn't a tar archive name; use .tar, .tar.gz, .tgz, "
                     ".tar.bz2, .tar.xz or .tar.zst", dest);
@@ -113,6 +113,11 @@ static bool tar_check(const ParseContext *ctx, const CommandTemplate *tpl,
     if (nl_count_slots(ctx, SLOT_ARCHIVE) > 1) {
         set_err(err, err_size, "one archive at a time, please (got '%s' and another)",
                 nl_find_slot(ctx, SLOT_ARCHIVE, 0));
+        return false;
+    }
+    const char *dest = nl_find_slot(ctx, SLOT_DEST, 0);
+    if (dest && !dest[0]) {
+        set_err(err, err_size, "the name after \"into\" is empty%s", "");
         return false;
     }
     if (nl_count_slots(ctx, SLOT_DEST) > 1) {
@@ -176,8 +181,9 @@ static int tar_placeholder(const ParseContext *ctx, const char *name, size_t len
             a = buf;
         }
         if (a[0] == '-') {   /* keep "-rf.tar.gz" from looking like options */
-            snprintf(quoted, sizeof quoted, "./%s", a);
-            snprintf(buf, sizeof buf, "%s", quoted);
+            int n = snprintf(quoted, sizeof quoted, "./%s", a);
+            if (n < 0 || (size_t)n >= sizeof buf) { o->overflow = true; return 1; }
+            memcpy(buf, quoted, (size_t)n + 1);
             a = buf;
         }
         if (!nl_shell_quote(a, quoted, sizeof quoted)) { o->overflow = true; return 1; }

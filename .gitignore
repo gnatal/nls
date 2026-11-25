@@ -5,3 +5,5 @@ midia_files/
 marketing/demo/
 dist/
 .build-version
+build/
+crash-input

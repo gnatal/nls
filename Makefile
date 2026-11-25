@@ -53,22 +53,67 @@ ZSHDIR   := $(DESTDIR)$(PREFIX)/share/zsh/site-functions
 nls: $(SRC) $(HDR) .build-version
 	$(CC) $(CFLAGS) -DNL_VERSION_SUFFIX='"$(VERSION_SUFFIX)"' $(SRC) $(LDFLAGS) -o $@
 
+# Every suite, in order; each takes the binary to test. The execution
+# suites skip tools that aren't installed.
+TESTS := run_tests run_warn_tests run_x_tests run_infer_tests run_paraphrase_tests \
+         run_explain_tests run_shell_tests run_completion_tests \
+         run_jq_exec run_grep_exec run_find_exec run_tar_exec run_git_exec \
+         run_curl_exec run_magick_exec run_ffmpeg_exec
+
 test: nls
-	sh tests/run_tests.sh ./nls
-	sh tests/run_warn_tests.sh ./nls
-	sh tests/run_x_tests.sh ./nls
-	sh tests/run_infer_tests.sh ./nls
-	sh tests/run_explain_tests.sh ./nls
-	sh tests/run_shell_tests.sh ./nls
-	sh tests/run_completion_tests.sh ./nls
-	sh tests/run_jq_exec.sh ./nls
-	sh tests/run_grep_exec.sh ./nls
-	sh tests/run_find_exec.sh ./nls
-	sh tests/run_tar_exec.sh ./nls
-	sh tests/run_git_exec.sh ./nls
-	sh tests/run_curl_exec.sh ./nls
-	sh tests/run_magick_exec.sh ./nls
-	sh tests/run_ffmpeg_exec.sh ./nls
+	@for t in $(TESTS); do echo "== $$t"; sh tests/$$t.sh ./nls || exit 1; done
+
+test-paraphrase: nls
+	sh tests/run_paraphrase_tests.sh ./nls
+
+# The whole suite against a build with AddressSanitizer and UBSan: an
+# out-of-bounds read the golden output doesn't show still fails here.
+SAN_FLAGS := -std=c11 -g -O1 -Wall -Wextra -pedantic -Werror \
+             -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer
+build/nls-san: $(SRC) $(HDR) .build-version
+	@mkdir -p build
+	$(CC) $(SAN_FLAGS) -DNL_VERSION_SUFFIX='"$(VERSION_SUFFIX)"' $(SRC) -o $@
+
+test-sanitize: build/nls-san
+	@for t in $(TESTS); do echo "== $$t"; \
+	  ASAN_OPTIONS=detect_leaks=0 sh tests/$$t.sh build/nls-san || exit 1; done
+
+# Fuzzing (tests/fuzz/fuzz_nls.c): the lexer, matcher, expanders and
+# --explain, with an oracle that fails on an unquoted shell character the
+# template didn't put there.
+#   make fuzz              libFuzzer, coverage-guided, for FUZZ_TIME seconds
+#                          (needs a clang with libFuzzer: Linux, or Homebrew llvm
+#                          on macOS: make fuzz FUZZ_CC=$$(brew --prefix llvm)/bin/clang)
+#   make fuzz-check        any compiler (Apple clang too): replays the corpus,
+#                          then FUZZ_RUNS random mutations, under ASan + UBSan
+#   build/fuzz-check crash-input     replays one input
+LIB_SRC   := $(filter-out src/main.c,$(SRC))
+FUZZ_SRC  := tests/fuzz/fuzz_nls.c
+FUZZ_CC   ?= clang
+FUZZ_TIME ?= 60
+FUZZ_RUNS ?= 200000
+FUZZ_SAN  := -g -O1 -std=c11 -fsanitize=address,undefined -fno-sanitize-recover=all
+
+build/fuzz-corpus: tests/fuzz/make_corpus.sh $(wildcard tests/*.tsv tests/fuzz/regressions/*)
+	sh tests/fuzz/make_corpus.sh $@
+	@touch $@
+
+build/fuzz-nls: $(FUZZ_SRC) $(LIB_SRC) $(HDR)
+	@mkdir -p build
+	$(FUZZ_CC) $(FUZZ_SAN) -fsanitize=fuzzer $(FUZZ_SRC) $(LIB_SRC) -o $@
+
+build/fuzz-check: $(FUZZ_SRC) $(LIB_SRC) $(HDR)
+	@mkdir -p build
+	$(CC) $(FUZZ_SAN) -DNL_FUZZ_MAIN $(FUZZ_SRC) $(LIB_SRC) -o $@
+
+fuzz: build/fuzz-nls build/fuzz-corpus
+	@mkdir -p build/fuzz-found
+	ASAN_OPTIONS=detect_leaks=0 build/fuzz-nls -max_total_time=$(FUZZ_TIME) -max_len=512 \
+	  -dict=tests/fuzz/nls.dict -artifact_prefix=build/ build/fuzz-found build/fuzz-corpus
+
+fuzz-check: build/fuzz-check build/fuzz-corpus
+	ASAN_OPTIONS=detect_leaks=0:abort_on_error=1 UBSAN_OPTIONS=abort_on_error=1 \
+	  build/fuzz-check -runs=$(FUZZ_RUNS) build/fuzz-corpus
 
 test-ffmpeg: nls
 	sh tests/run_ffmpeg_exec.sh ./nls
@@ -82,7 +127,14 @@ install: nls
 	install -m 644 man/nls.1 "$(MANDIR)/$(BIN_NAME).1"
 	install -m 644 completions/nls.bash "$(BASHDIR)/$(BIN_NAME)"
 	install -m 644 completions/_nls "$(ZSHDIR)/_$(BIN_NAME)"
-	@echo "installed $(BINDIR)/$(BIN_NAME), its man page and bash/zsh completions"
+	@echo "installed $(BINDIR)/$(BIN_NAME) ($$("$(BINDIR)/$(BIN_NAME)" --version)), its man page and bash/zsh completions"
+	@# Another copy earlier on PATH would keep running the old behaviour.
+	@found=$$(command -v $(BIN_NAME) 2>/dev/null); \
+	if [ -z "$(DESTDIR)" ] && [ -n "$$found" ] && [ "$$found" != "$(BINDIR)/$(BIN_NAME)" ]; then \
+	  echo ""; \
+	  echo "warning: '$(BIN_NAME)' runs $$found ($$("$$found" --version 2>/dev/null)),"; \
+	  echo "         not the copy just installed. Remove it, or put $(BINDIR) first on PATH."; \
+	fi
 	@case ":$$PATH:" in \
 	  *":$(BINDIR):"*) ;; \
 	  *) echo ""; \
@@ -125,6 +177,6 @@ dist: nls
 
 clean:
 	rm -f nls .build-version
-	rm -rf dist
+	rm -rf dist build
 
-.PHONY: test test-ffmpeg test-magick install uninstall version build-version release dist clean
+.PHONY: test test-paraphrase test-sanitize fuzz fuzz-check test-ffmpeg test-magick install uninstall version build-version release dist clean

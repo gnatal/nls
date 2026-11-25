@@ -1,0 +1,79 @@
+# Tests on every push and pull request (release.yml only runs on tags).
+#
+#   test      make test on Linux and macOS, warnings as errors
+#   sanitize  make test against an ASan + UBSan build, then a short libFuzzer
+#             run over the lexer and expanders (see tests/fuzz/fuzz_nls.c)
+name: CI
+
+on:
+  push:
+    branches: ['**']
+    tags-ignore: ['**']      # tags are release.yml's
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: test ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0     # the build stamp counts commits since the last tag
+
+      # As in release.yml: jq and ffmpeg for the execution tests, zsh and
+      # mandoc for the shell-integration, completion and man page tests.
+      - name: Install tools for the execution tests
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -q && sudo apt-get install -yq jq ffmpeg zsh mandoc
+
+      - name: Build
+        run: |
+          make clean
+          make CFLAGS="-std=c11 -O2 -Wall -Wextra -pedantic -Werror"
+          ./nls --version
+
+      - name: Test
+        run: make test
+
+  sanitize:
+    name: sanitizers and fuzzing
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install clang and the tools for the execution tests
+        run: sudo apt-get update -q && sudo apt-get install -yq clang jq ffmpeg zsh mandoc
+
+      - name: Test with ASan + UBSan
+        run: make test-sanitize CC=clang
+
+      - name: Fuzz for 2 minutes
+        run: make fuzz FUZZ_CC=clang FUZZ_TIME=120
+
+      # A failing input is written to build/crash-*: add it to
+      # tests/fuzz/regressions/ once fixed.
+      - name: Keep the failing input
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-failures
+          path: |
+            build/crash-*
+            build/leak-*
+            build/timeout-*
+            build/oom-*
+          if-no-files-found: ignore

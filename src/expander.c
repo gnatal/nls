@@ -239,7 +239,7 @@ static bool synth_out_file(const ParseContext *ctx, const char *ext_spec, size_t
     if (ctx->tool == TOOL_MAGICK) {
         /* the output is DEST ("to out.webp"); a folder ("into small/") keeps the name */
         explicit_out = nl_find_slot(ctx, SLOT_DEST, 0);
-        if (explicit_out && explicit_out[strlen(explicit_out) - 1] == '/') {
+        if (explicit_out && explicit_out[0] && explicit_out[strlen(explicit_out) - 1] == '/') {
             dir = explicit_out;
             explicit_out = NULL;
         }

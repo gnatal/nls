@@ -400,6 +400,11 @@ bool nl_lex(ParseContext *ctx, ToolId tool, const char *input, const JsonInfo *j
     char lowbuf[NL_MAX_INPUT + NL_MAX_RAW];
     RawTok toks[NL_MAX_RAW];
     memcpy(buf, input, in_len + 1);
+    /* Control characters (but tab) separate words like spaces, quoted or
+     * not, so none reaches a slot: an escape sequence in a file name would
+     * let the printed command redraw the terminal before -x asks. */
+    for (char *p = buf; *p; p++)
+        if (((unsigned char)*p < 0x20 && *p != '\t') || *p == 0x7f) *p = ' ';
 
     size_t count = tokenize(buf, toks, NL_MAX_RAW, lowbuf, &ctx->overflow);
     LEXERS[tool](ctx, toks, count, json);
