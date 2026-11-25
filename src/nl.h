@@ -6,9 +6,19 @@
 #include <stddef.h>
 #include <stdio.h>
 
-/* The release version: bump it here (and in CHANGELOG.md) before tagging
- * vX.Y.Z. `make version` prints it; the release workflow checks the tag. */
+/* The release version. Don't bump it by hand: `make release V=X.Y.Z` does it
+ * (with CHANGELOG.md, the man page and the docs), commits and tags vX.Y.Z.
+ * `make version` prints it; the release workflow checks the tag. */
 #define NL_VERSION        "0.1.0"
+
+/* What `nls --version` prints. The Makefile appends the commit to builds
+ * that aren't of the release tag itself: 0.1.0+16.g2827e3e (16 commits since
+ * v0.1.0, or in total if it isn't tagged; ".dirty" for uncommitted changes).
+ * Builds without git (a source tarball) print NL_VERSION alone. */
+#ifndef NL_VERSION_SUFFIX
+#define NL_VERSION_SUFFIX ""
+#endif
+#define NL_VERSION_FULL   NL_VERSION NL_VERSION_SUFFIX
 
 #define NL_MAX_SLOTS      16
 #define NL_MAX_TOKENS     32

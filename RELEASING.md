@@ -13,23 +13,49 @@ Releases are built and published by `.github/workflows/release.yml` when a
 The full test suite (`make test`) runs on every platform before anything is
 published. The execution suites skip tools a runner doesn't have.
 
+## Versions between releases
+
+You don't bump the version on every commit. The build stamps the commit
+instead, so each commit's binary reports its own version:
+
+```sh
+$ nls --version        # 16 commits after v0.1.0
+nls 0.1.0+16.g2827e3e
+$ nls --version        # with uncommitted changes
+nls 0.1.0+16.g2827e3e.dirty
+$ nls --version        # built from the tag v0.1.0
+nls 0.1.0
+```
+
+`make build-version` prints the stamp for the current checkout. If `v0.1.0`
+isn't tagged, the count is all the commits. A build without git (a source
+tarball, Homebrew) prints the bare `NL_VERSION`.
+
 ## Cutting a release
 
-1. Bump `NL_VERSION` in `src/nl.h`.
-2. In `CHANGELOG.md`, move the `[Unreleased]` entries under a new
-   `## [X.Y.Z] - YYYY-MM-DD` heading. This section becomes the release notes,
-   and the workflow fails if it's missing.
-3. Optionally, do a dry run first: Actions → Release → *Run workflow* builds and
+1. Make sure everything going into the release is listed under `[Unreleased]`
+   in `CHANGELOG.md`. That section becomes the release notes.
+2. Optionally, do a dry run first: Actions → Release → *Run workflow* builds and
    tests on all platforms without publishing.
-4. Commit, tag and push:
+3. Run:
 
    ```sh
-   git commit -am "Release X.Y.Z"
-   git tag vX.Y.Z
+   make release V=X.Y.Z
+   ```
+
+   From a clean tree, this sets `NL_VERSION` in `src/nl.h` and updates the
+   version in the man page, `docs/index.html` and the Homebrew formula. It also
+   moves the `[Unreleased]` entries under `## [X.Y.Z] - YYYY-MM-DD`, then commits
+   "Release X.Y.Z" and creates the annotated tag `vX.Y.Z`. It refuses a
+   version that isn't higher than the current one, and nothing is pushed.
+4. Push:
+
+   ```sh
    git push origin main vX.Y.Z
    ```
 
-   The workflow refuses a tag that doesn't match `NL_VERSION`.
+   The workflow refuses a tag that doesn't match `NL_VERSION`, and a binary
+   that doesn't report exactly `nls X.Y.Z`.
 
 To build an archive locally: `make dist` (→ `dist/nls-X.Y.Z-<os>-<arch>.tar.gz`).
 

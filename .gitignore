@@ -4,3 +4,4 @@ nls
 midia_files/
 marketing/demo/
 dist/
+.build-version

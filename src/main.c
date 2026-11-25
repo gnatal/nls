@@ -838,7 +838,7 @@ int main(int argc, char **argv) {
         else if (strcmp(a, "-v") == 0 || strcmp(a, "--verbose") == 0) verbose = true;
         else if (strcmp(a, "-xy") == 0 || strcmp(a, "-yx") == 0) mode.exec = mode.yes = true;
         else if (strcmp(a, "-h") == 0 || strcmp(a, "--help") == 0) { usage(stdout); return 0; }
-        else if (strcmp(a, "-V") == 0 || strcmp(a, "--version") == 0) { printf("nls %s\n", NL_VERSION); return 0; }
+        else if (strcmp(a, "-V") == 0 || strcmp(a, "--version") == 0) { printf("nls %s\n", NL_VERSION_FULL); return 0; }
         else if (strcmp(a, "--shell") == 0) return print_shell(i + 1 < argc ? argv[i + 1] : NULL);
         else if (strncmp(a, "--shell=", 8) == 0) return print_shell(a + 8);
         else if (strcmp(a, "-l") == 0 || strcmp(a, "--list") == 0) {
