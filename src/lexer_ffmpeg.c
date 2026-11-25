@@ -173,6 +173,15 @@ static double range_unit(const char *sep, const char *second, const char *after)
 
 void nl_lex_ffmpeg(ParseContext *ctx, const RawTok *toks, size_t count, const JsonInfo *json) {
     (void)json;
+    /* "turn down the volume", "turn the sound up": with a sound word around,
+     * "down" / "up" mean quieter / louder, not a vertical flip. "speed up the
+     * audio" is still a speed-up. */
+    static const char *const sound[] = { "volume", "sound", "audio", NULL };
+    static const char *const pace[] = { "speed", "sped", "speeding", "slow", "slowing", NULL };
+    bool has_sound = false;
+    for (size_t i = 0; i < count; i++)
+        if (!toks[i].quoted && in_list(toks[i].lower, sound)) has_sound = true;
+
     for (size_t i = 0; i < count && !ctx->overflow; i++) {
         const char *t = toks[i].text;
         const char *lw = toks[i].lower;
@@ -215,6 +224,11 @@ void nl_lex_ffmpeg(ParseContext *ctx, const RawTok *toks, size_t count, const Js
         if (ext_in(lw, FFMPEG_EXTS)) {
             add_slot(ctx, SLOT_EXT, strcmp(lw, "jpeg") == 0 ? "jpg" : lw);
             add_intent(ctx, lw);
+            continue;
+        }
+        if (has_sound && (strcmp(lw, "down") == 0 || strcmp(lw, "up") == 0) &&
+            !(prev && in_list(prev, pace))) {
+            add_intent(ctx, lw[0] == 'd' ? "quieter" : "louder");
             continue;
         }
         lex_intent(ctx, lw);

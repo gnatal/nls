@@ -144,7 +144,7 @@ const CommandTemplate NL_TEMPLATES[] = {
 
     { TOOL_FFMPEG, "ffmpeg_speed", "Speed up video and audio (default 2x)",
       "speed up in.mp4 1.5x",
-      KW("speed", "faster", "fast", "accelerate", "timelapse"), REQ(F),
+      KW("speed", "faster", "fast", "accelerate", "timelapse", "up"), REQ(F),
       "ffmpeg -i {FILE:0} -filter:v setpts=PTS/{FACTOR:0|2} -filter:a atempo={FACTOR:0|2} {OUT_FILE||_fast}", SHAPE_ANY },
 
     { TOOL_FFMPEG, "ffmpeg_reverse", "Play backwards",
@@ -179,12 +179,12 @@ const CommandTemplate NL_TEMPLATES[] = {
 
     { TOOL_FFMPEG, "ffmpeg_louder", "Increase volume (default 1.5x)",
       "make in.mp4 louder 2x",
-      KW("volume", "louder", "boost", "increase", "amplify", "loud", "raise"), REQ(F),
+      KW("volume", "louder", "boost", "increase", "amplify", "loud", "raise", "sound"), REQ(F),
       "ffmpeg -i {FILE:0} -filter:a volume={FACTOR:0|1.5} -c:v copy {OUT_FILE||_louder}", SHAPE_ANY },
 
     { TOOL_FFMPEG, "ffmpeg_quieter", "Decrease volume by half",
       "make in.mp4 quieter",
-      KW("volume", "quieter", "quiet", "lower", "decrease", "reduce", "softer"), REQ(F),
+      KW("volume", "quieter", "quiet", "lower", "decrease", "reduce", "softer", "sound"), REQ(F),
       "ffmpeg -i {FILE:0} -filter:a volume=0.5 -c:v copy {OUT_FILE||_quieter}", SHAPE_ANY },
 
     { TOOL_FFMPEG, "ffmpeg_normalize", "Normalize loudness (EBU R128)",
@@ -693,7 +693,7 @@ const CommandTemplate NL_TEMPLATES[] = {
 
     { TOOL_GIT, "git_commit", "Commit staged changes (or given files) with a message",
       "commit with message 'fix login bug'",
-      KW("commit", "save", "record", "message", "checkin"), REQ(S),
+      KW("commit", "save", "record", "message", "checkin", "@staged", "@staged+"), REQ(S),
       "git commit -m {QUOTED_STR:0}{PATHS}", SHAPE_ANY },
 
     { TOOL_GIT, "git_commit_all", "Stage everything, new files included, and commit",
@@ -773,13 +773,14 @@ const CommandTemplate NL_TEMPLATES[] = {
 
     { TOOL_GIT, "git_unpushed", "Commits not pushed yet",
       "commits I haven't pushed yet",
-      KW("history", "unpushed", "pushed", "push", "outgoing", "ahead", "yet"), REQ(0),
+      KW("history", "unpushed", "pushed", "push", "outgoing", "ahead", "yet", "not",
+         "local", "show", "list"), REQ(0),
       "git log --oneline '@{upstream}..HEAD'", SHAPE_ANY },
 
     { TOOL_GIT, "git_unpulled", "Commits on the remote you haven't pulled yet",
       "commits on the remote I haven't pulled",
       KW("history", "unpulled", "pulled", "pull", "incoming", "behind", "remote", "upstream",
-         "fetch"), REQ(0),
+         "fetch", "yet", "show", "list"), REQ(0),
       "git fetch && git log --oneline 'HEAD..@{upstream}'", SHAPE_ANY },
 
     { TOOL_GIT, "git_blame", "Who last changed each line of a file (or a line range)",
@@ -883,7 +884,7 @@ const CommandTemplate NL_TEMPLATES[] = {
     { TOOL_GIT, "git_branch_list", "List branches, most recently committed first",
       "list branches by most recent commit",
       KW("list", "show", "branch", "recent", "sorted", "sort", "latest", "all", "view", "date",
-         "@last"), REQ(0),
+         "@last", "exist", "exists", "existing", "available"), REQ(0),
       "git branch --sort=-committerdate", SHAPE_ANY },
 
     { TOOL_GIT, "git_branch_merged", "List branches already merged (into the current or a branch)",
@@ -942,7 +943,8 @@ const CommandTemplate NL_TEMPLATES[] = {
 
     { TOOL_GIT, "git_tag_list", "List tags, newest first",
       "list tags",
-      KW("list", "show", "tag", "all", "view", "which", "recent", "latest"), REQ(0),
+      KW("list", "show", "tag", "all", "view", "which", "recent", "latest", "exist", "exists",
+         "existing", "available"), REQ(0),
       "git tag --sort=-creatordate", SHAPE_ANY },
 
     { TOOL_GIT, "git_tag_delete", "Delete a local tag",

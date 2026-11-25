@@ -203,13 +203,16 @@ static int run_dry_run(const char *dry) {
 }
 
 /* Print the words that did / didn't count toward the match. */
-static void print_tokens(const ParseContext *ctx, uint32_t mask, bool matched) {
-    bool first = true;
+/* Internal markers ("@commit" for "this commit") aren't the user's words
+ * and are left out. Returns how many tokens were printed. */
+static int print_tokens(const ParseContext *ctx, uint32_t mask, bool matched, bool dry) {
+    int n = 0;
     for (size_t t = 0; t < ctx->token_count; t++) {
         if (((mask >> t) & 1u) != matched || ctx->intent_tokens[t][0] == '@') continue;
-        fprintf(stderr, "%s\"%s\"", first ? "" : ", ", ctx->intent_tokens[t]);
-        first = false;
+        if (!dry) fprintf(stderr, "%s\"%s\"", n ? ", " : "", ctx->intent_tokens[t]);
+        n++;
     }
+    return n;
 }
 
 /* Is the match weak or a close call? With `report`, say why on stderr.
@@ -232,14 +235,16 @@ static bool check_uncertain(const ParseContext *ctx, const MatchResult *m, const
     if (!report) return true;
 
     if (m->low_confidence) {
-        if (m->best_tokens) {
+        if (print_tokens(ctx, m->best_tokens, true, true) > 0) {
             fprintf(stderr, "nls: low-confidence match: only ");
-            print_tokens(ctx, m->best_tokens, true);
+            print_tokens(ctx, m->best_tokens, true, false);
             fprintf(stderr, " matched; ignored ");
+        } else if (m->best_tokens) {
+            fprintf(stderr, "nls: low-confidence match: only a generic phrase matched; ignored ");
         } else {
             fprintf(stderr, "nls: low-confidence match: no keyword matched; ignored ");
         }
-        print_tokens(ctx, m->best_tokens, false);
+        print_tokens(ctx, m->best_tokens, false, false);
         fputc('\n', stderr);
     }
     if (nalts > 0) {

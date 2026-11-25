@@ -51,6 +51,7 @@ ffmpeg	ffmpeg_fps	set the frame rate of talk.mp4 to 24fps
 ffmpeg	ffmpeg_fps	convert movie.mkv to 60 fps
 ffmpeg	ffmpeg_speed	make talk.mp4 2x faster
 ffmpeg	ffmpeg_speed	play movie.mkv at 1.25x speed
+ffmpeg	ffmpeg_speed	speed up the audio of talk.mp4
 ffmpeg	ffmpeg_reverse	play talk.mp4 backwards
 ffmpeg	ffmpeg_reverse	reverse the video movie.mkv
 ffmpeg	ffmpeg_rotate_cw	rotate talk.mp4 90 degrees clockwise
@@ -65,6 +66,10 @@ ffmpeg	ffmpeg_grayscale	make movie.mkv greyscale
 ffmpeg	ffmpeg_louder	boost the volume of talk.mp4 by 1.5x
 ffmpeg	ffmpeg_louder	increase the volume of movie.mkv 3x
 ffmpeg	ffmpeg_quieter	lower the volume of talk.mp4
+ffmpeg	ffmpeg_quieter	turn down the volume of movie.mkv
+ffmpeg	ffmpeg_quieter	turn the sound down in movie.mkv
+ffmpeg	ffmpeg_louder	turn up the volume of movie.mkv
+ffmpeg	ffmpeg_louder	turn the sound up in movie.mkv
 ffmpeg	ffmpeg_normalize	normalize the loudness of talk.mp4
 ffmpeg	ffmpeg_normalize	even out the audio levels in movie.mkv
 ffmpeg	ffmpeg_info	what codec is talk.mp4
@@ -261,6 +266,11 @@ git	git_unpushed	which commits haven't been pushed
 git	git_unpushed	unpushed commits
 git	git_unpulled	what commits on the remote have I not pulled
 git	git_unpulled	incoming commits I haven't pulled yet
+git	git_unpushed	what haven't I pushed
+git	git_unpushed	show my unpushed commits
+git	git_unpushed	local commits not on the remote
+git	git_unpulled	what haven't I pulled
+git	git_unpulled	commits not pulled yet
 git	git_blame	who wrote lines 5 to 15 of src/app.c
 git	git_blame	blame README.md
 git	git_show_commit	show commit a1b2c3d
@@ -307,12 +317,18 @@ git	git_merge_squash	merge feature-x as one commit
 git	git_merge_abort	cancel the merge
 git	git_merge_abort	stop this merge
 git	git_rebase_abort	cancel the rebase
+git	git_rebase_abort	stop the rebase in progress
 git	git_cherry_pick	apply commit a1b2c3d to this branch
 git	git_cherry_pick	cherry pick 9f8e7d6
 git	git_push_upstream	push this branch and track it on origin
 git	git_push_upstream	push and set the upstream
 git	git_push_force	push with force-with-lease
 git	git_tag	create tag v2.0.0
+git	git_tag	tag this commit v1.0
+git	git_tag	tag HEAD~2 as v2.0.0-rc.1
+git	git_tag_list	what tags exist
+git	git_branch_list	which branches exist
+git	git_commit	commit staged changes with the message 'add parser'
 git	git_tag_list	show all tags
 git	git_tag_delete	remove tag v1.0
 git	git_tag_delete	delete the tag v2.0.0
@@ -441,7 +457,6 @@ magick	magick_info_verbose	show the full exif of photo.jpg
 !ffmpeg	ffmpeg_seek	skip the first 1:30 of talk.mp4
 !ffmpeg	ffmpeg_gif_cut	turn talk.mp4 from 00:10 to 00:14 into a gif
 !ffmpeg	ffmpeg_hflip	flip movie.mkv left to right
-!ffmpeg	ffmpeg_quieter	turn down the volume of movie.mkv
 !ffmpeg	ffmpeg_info	how long is talk.mp4
 !jq	jq_paths	show all paths in data.json
 !jq	jq_keys	show the top level keys of data.json
@@ -461,15 +476,9 @@ magick	magick_info_verbose	show the full exif of photo.jpg
 !git	git_undo_mixed	uncommit the last 2 commits and keep the changes unstaged
 !git	git_undo_hard	throw away my last 2 commits and their changes
 !git	git_squash	squash the last 3 commits into one
-!git	git_commit	commit staged changes with the message 'add parser'
 !git	git_count	count commits since last month
-!git	git_unpushed	what haven't I pushed
-!git	git_unpushed	show my unpushed commits
 !git	git_branch_delete_force	delete branch spike even if not merged
-!git	git_rebase_abort	stop the rebase in progress
 !git	git_push_force	force push my branch
-!git	git_tag	tag this commit v1.0
-!git	git_tag_list	what tags exist
 !git	git_tag_push	push all tags to origin
 !curl	curl_patch	send a patch of changes.json to https://api.example.com/items/7
 !curl	curl_delete	send a delete request to https://api.example.com/users/3
@@ -481,4 +490,3 @@ magick	magick_info_verbose	show the full exif of photo.jpg
 !magick	magick_append	put left.jpg right.jpg next to each other into both.jpg
 !magick	magick_favicon	create a favicon.ico from logo.png
 !curl	curl_verbose	verbose request to https://example.com
-!git	git_unpushed	local commits not on the remote

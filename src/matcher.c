@@ -72,6 +72,9 @@ static const char *const GENERIC_WORDS[] = {
     "show", "list", "get", "print", "display", "view", "see", "about", "value",
     "values", "item", "items", NULL
 };
+/* Markers the git lexer puts in for "this commit" / "the last commit": they
+ * say which commit, not what to do with it. */
+static const char *const NOUN_MARKERS[] = { "@commit", "@last", NULL };
 static const char *const COUNT_WORDS[] = { "count", "how", "many", "much", "number", NULL };
 
 static bool ends_with(const char *s, size_t n, const char *suffix) {
@@ -387,6 +390,11 @@ void nl_match_only(const ParseContext *ctx, MatchResult *out, bool verbose, cons
     Candidate top[TOP_N];
     size_t ntop = 0;
     Candidate rejected = { 0 };                 /* best one the expander refuses */
+    /* best blocked template matched by a real word, not just "this commit" */
+    const CommandTemplate *meant = NULL;
+    int meant_score = 0;
+    uint8_t meant_nmissing = 0;
+    SlotType meant_missing[NL_MAX_REQUIRED];
 
     Word toks[NL_MAX_TOKENS];
     tokens_init(ctx, toks);
@@ -399,6 +407,9 @@ void nl_match_only(const ParseContext *ctx, MatchResult *out, bool verbose, cons
             vague |= 1u << t;
     }
     vague |= weak;
+    uint32_t nouns = vague;
+    for (size_t t = 0; t < ctx->token_count; t++)
+        if (in_words(ctx->intent_tokens[t], NOUN_MARKERS)) nouns |= 1u << t;
     /* every runnable candidate's matched tokens, for the confidence check */
     enum { MAX_RUNNABLE = 128 };
     const CommandTemplate *runnable[MAX_RUNNABLE];
@@ -459,6 +470,12 @@ void nl_match_only(const ParseContext *ctx, MatchResult *out, bool verbose, cons
         } else {
             bool better_blocked = !out->blocked || c.score > out->blocked_score ||
                                   (c.score == out->blocked_score && nmissing < out->missing_count);
+            if (c.tokens & ~nouns && (!meant || c.score > meant_score)) {
+                meant = tpl;
+                meant_score = c.score;
+                meant_nmissing = nmissing;
+                memcpy(meant_missing, missing, sizeof missing);
+            }
             if (better_blocked) {
                 out->blocked = tpl;
                 out->blocked_score = c.score;
@@ -557,6 +574,26 @@ void nl_match_only(const ParseContext *ctx, MatchResult *out, bool verbose, cons
         if (out->blocked && out->blocked_score > best_filter_score &&
             strncmp(out->blocked->id, "jq_filter_", 10) != 0)
             out->blocked = NULL;
+    }
+
+    /* "tag this commit", "label this commit": the winner (git_revert) only
+     * matched "this commit" or generic words, while a template that lacks a
+     * detail (git_tag, no name given) matched what the user asked for, and
+     * scored as well. Ask for the detail rather than run the weak guess. */
+    if (!only && out->best && meant && meant_score >= out->best_score &&
+        !(out->best_tokens & ~nouns)) {
+        if (verbose)
+            fprintf(stderr, "%s only matched generic words: %s fits better but lacks a detail\n",
+                    out->best->id, meant->id);
+        out->blocked = meant;
+        out->blocked_score = meant_score;
+        out->missing_count = meant_nmissing;
+        memcpy(out->missing, meant_missing, sizeof meant_missing);
+        out->best = NULL;
+        out->best_score = 0;
+        out->best_tokens = 0;
+        ntop = 0;
+        nrunnable = 0;
     }
 
     /* Runners-up within NL_CLOSE_MARGIN points that use at least as many

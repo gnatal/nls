@@ -41,6 +41,8 @@ ffmpeg	flip in.mp4 upside down	ffmpeg -i in.mp4 -vf vflip -c:a copy in_flipped.m
 ffmpeg	make in.mp4 black and white	ffmpeg -i in.mp4 -vf format=gray -c:a copy in_gray.mp4
 ffmpeg	make in.mp4 louder 2x	ffmpeg -i in.mp4 -filter:a volume=2 -c:v copy in_louder.mp4
 ffmpeg	reduce the volume of in.mp4	ffmpeg -i in.mp4 -filter:a volume=0.5 -c:v copy in_quieter.mp4
+ffmpeg	turn down the volume of in.mp4	ffmpeg -i in.mp4 -filter:a volume=0.5 -c:v copy in_quieter.mp4
+ffmpeg	turn the sound up in in.mp4	ffmpeg -i in.mp4 -filter:a volume=1.5 -c:v copy in_louder.mp4
 ffmpeg	normalize audio of in.mp4	ffmpeg -i in.mp4 -af loudnorm -c:v copy in_normalized.mp4
 ffmpeg	show info about in.mp4	ffprobe -hide_banner in.mp4
 ffmpeg	what's the duration of in.mp4	ffprobe -hide_banner in.mp4
@@ -266,6 +268,8 @@ git	commits not in main	git log --oneline main..HEAD
 git	commits since v1.0	git log --oneline v1.0..HEAD
 git	commits between v1.0 and v2.0	git log --oneline v1.0..v2.0
 git	commits I haven't pushed yet	git log --oneline '@{upstream}..HEAD'
+git	what haven't I pushed	git log --oneline '@{upstream}..HEAD'
+git	what haven't I pulled	git fetch && git log --oneline 'HEAD..@{upstream}'
 git	commits on the remote I haven't pulled	git fetch && git log --oneline 'HEAD..@{upstream}'
 git	who changed lines 10 to 20 of src/main.c	git blame -L 10,20 src/main.c
 git	who wrote src/main.c	git blame src/main.c
@@ -307,11 +311,14 @@ git	merge feature-x	git merge feature-x
 git	squash merge feature-x	git merge --squash feature-x
 git	abort the merge	git merge --abort
 git	abort the rebase	git rebase --abort
+git	stop the rebase in progress	git rebase --abort
 git	cherry-pick a1b2c3d	git cherry-pick a1b2c3d
 git	push the new branch and set upstream	git push -u origin HEAD
 git	push feature-x and set upstream	git push -u origin feature-x
 git	force push after rebase	git push --force-with-lease
 git	tag the current commit as v1.2.0	git tag v1.2.0
+git	tag this commit v1.0	git tag v1.0
+git	tag HEAD~2 as v2.0.0-rc.1	git tag v2.0.0-rc.1 HEAD~2
 git	tag v1.2.0 with message 'release 1.2'	git tag -a -m 'release 1.2' v1.2.0
 git	delete tag v1.2.0	git tag -d v1.2.0
 git	push tags	git push origin --tags
@@ -538,3 +545,12 @@ magick	resize hero.png to width 800 at 10fps	!ERR
 grep	count TODO in src/	grep -rcE -e TODO src/
 magick	combine a.png b.png into anim.gif	magick -delay 10 -loop 0 a.png b.png anim.gif
 magick	join a.png b.png into anim.gif	magick -delay 10 -loop 0 a.png b.png anim.gif
+# git: a request that only names a commit ("this commit") doesn't pick a
+# command; the template the request's verb points at asks for its detail
+git	tag this commit	!ERR
+git	label this commit	!ERR
+# "exist" is never a ref name: these list, they don't create
+git	what tags exist	git tag --sort=-creatordate
+git	which branches exist	git branch --sort=-committerdate
+# "commit staged changes" commits the index only, without git add -A
+git	commit staged changes with the message 'add parser'	git commit -m 'add parser'

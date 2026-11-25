@@ -5,6 +5,30 @@ The release workflow uses the section matching the tag as the release notes.
 
 ## [Unreleased]
 
+### Fixes: wrong commands given without a warning
+
+- git: `what haven't I pushed` listed unpushed commits only by luck of
+  template order; it could give `git revert`. A negation before a push or
+  pull verb ("haven't I pushed", "not pulled yet") now reads as
+  unpushed / unpulled.
+- git: `tag this commit v1.0` gave `git revert --no-edit HEAD`. With "tag"
+  in the request, a version (`v1.0`, `2.3.1`, `v2.0.0-rc.1`) is the tag name.
+- git: `tag this commit` and `label this commit` (no name) gave
+  `git revert`. A command that only matched "this commit" no longer wins
+  over the one the verb points at: nls asks for the tag's name instead.
+- git: `stop the rebase in progress` gave `git rm -r --cached -- progress`
+  ("in progress" was read as a path). It now aborts the rebase.
+- git: `what tags exist` created a tag named "exist", and `which branches
+  exist` created a branch. Both now list.
+- git: `commit staged changes with the message '…'` ran `git add -A` first,
+  committing unstaged work too. It now commits only what is staged.
+- ffmpeg: `turn down the volume of movie.mkv` flipped the video upside down.
+  With "volume", "sound" or "audio" in the request, "down" / "up" mean
+  quieter / louder (`turn the sound up` also no longer extracts the audio),
+  and `speed up the audio` speeds up instead of extracting.
+- The low-confidence warning printed `only  matched` with an empty word when
+  the match came from "this commit"; it now says a generic phrase matched.
+
 ## [0.1.0] - 2026-11-25
 
 First release.

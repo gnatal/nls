@@ -14,6 +14,8 @@ typedef struct {
     bool renaming;      /* "rename X to Y": Y may be any valid name                 */
     bool ref_noun;      /* "branch" / "tag" appears: "called X" names a ref         */
     bool deleting;      /* a delete verb appears: "merged" means "delete merged"    */
+    bool tagging;       /* "tag" / "tags" appears: a version like v1.0 is its name   */
+    bool committing;    /* starts with "commit": "staged" means only what's staged  */
 } GitState;
 
 static const char *const GIT_REMOTES[] = {
@@ -79,7 +81,7 @@ static const char *const GIT_RESERVED[] = {
     "time", "name", "most", "not", "and", "or", "one", "each", "every", "work", "stuff",
     "files", "file", "everyone", "anyone", "someone", "who", "what", "which", "when",
     "where", "why", "how", "that", "this", "these", "those", "local", "new", "old", "merged",
-    "unmerged", NULL
+    "unmerged", "progress", "exist", "exists", "existing", "available", NULL
 };
 
 /* Characters git accepts in a branch / tag name, minus anything a shell
@@ -114,6 +116,22 @@ static bool git_rev_literal(const char *t) {
         else return false;
     }
     return digit && letter;
+}
+
+/* A release version: v1, v1.0, 2.3.1, v2.0.0-rc.1 (a leading "v" or a dot). */
+static bool git_version_word(const char *t) {
+    const char *p = t;
+    bool v = *p == 'v' || *p == 'V';
+    if (v) p++;
+    if (!isdigit((unsigned char)*p)) return false;
+    bool dot = false;
+    while (isdigit((unsigned char)*p) || (*p == '.' && isdigit((unsigned char)p[1]))) {
+        if (*p == '.') dot = true;
+        p++;
+    }
+    if (*p == '-' && isalnum((unsigned char)p[1]))
+        for (p++; isalnum((unsigned char)*p) || *p == '.' || *p == '-'; p++) {}
+    return *p == '\0' && (v || dot) && git_ref_word(t);
 }
 
 static bool git_name_basic(const char *t, const char *lw) {
@@ -348,6 +366,20 @@ static size_t classify_git(ParseContext *ctx, const RawTok *toks, size_t count, 
         add_intent(ctx, "@notin");
         return 3;
     }
+    /* "haven't I pushed", "not pulled yet": the negation goes with the verb */
+    static const char *const neg_verb[] = {
+        "not", "haven't", "havent", "hasn't", "hasnt", "didn't", "didnt", "never", NULL
+    };
+    if (in_list(lw, neg_verb)) {
+        static const char *const pushed[] = { "push", "pushed", "pushing", NULL };
+        static const char *const pulled[] = {
+            "pull", "pulled", "pulling", "fetch", "fetched", "fetching", NULL
+        };
+        for (size_t k = i + 1; k < count && k <= i + 3 && !toks[k].quoted; k++) {
+            if (in_list(toks[k].lower, pushed)) { add_intent(ctx, "unpushed"); return 1; }
+            if (in_list(toks[k].lower, pulled)) { add_intent(ctx, "unpulled"); return 1; }
+        }
+    }
     if (strcmp(lw, "since") == 0 && next &&
         (git_name_ok(toks[i + 1].text, next) || git_rev_literal(toks[i + 1].text)) &&
         !is_iso_date(next)) {
@@ -399,6 +431,16 @@ static size_t classify_git(ParseContext *ctx, const RawTok *toks, size_t count, 
 
     /* 5. Revisions written out: HEAD~2, a1b2c3d */
     if (git_rev_literal(t)) { add_slot(ctx, SLOT_REV, t); return 1; }
+
+    /* 5b. "tag this commit v1.0": with a tag around, a version names it
+     *     (unless it's where to work from: "diff against v1.0") */
+    if (st->tagging && git_version_word(t)) {
+        const char *pw = git_prev_word(toks, i, NULL);
+        if (!(pw && in_list(pw, GIT_REV_LEADERS))) {
+            git_add_branch(ctx, st, t, i + 1);
+            return 1;
+        }
+    }
 
     /* 6. Line ranges, dates, numbers */
     size_t n = git_lines(ctx, toks, count, i);
@@ -499,6 +541,13 @@ static size_t classify_git(ParseContext *ctx, const RawTok *toks, size_t count, 
         }
         return 1;
     }
+    if (strcmp(lw, "staged") == 0 && st->committing) {
+        /* "commit staged changes": just the index, not git add -A first.
+         * Two tokens, so it outscores commit_all's "stage" + "changes". */
+        add_intent(ctx, "@staged");
+        add_intent(ctx, "@staged+");
+        return 1;
+    }
     if (strcmp(lw, "merged") == 0 && st->deleting) {
         /* "delete merged branches": two tokens, so it outscores "delete branch X" */
         add_intent(ctx, "@delmerged");
@@ -516,10 +565,19 @@ static size_t classify_git(ParseContext *ctx, const RawTok *toks, size_t count, 
 
 void nl_lex_git(ParseContext *ctx, const RawTok *toks, size_t count, const JsonInfo *json) {
     (void)json;
-    GitState gst = { 0, false, false, false, false };
+    GitState gst = { 0, false, false, false, false, false, false };
+    for (size_t i = 0; i < count; i++) {
+        /* the request starts with "commit" ("please commit", "git commit") */
+        static const char *const lead[] = { "please", "git", "now", "just", NULL };
+        if (toks[i].quoted || !in_list(toks[i].lower, lead)) {
+            gst.committing = !toks[i].quoted && strcmp(toks[i].lower, "commit") == 0;
+            break;
+        }
+    }
     for (size_t i = 0; i < count; i++) {
         if (toks[i].quoted) continue;
         const char *w = toks[i].lower;
+        if (strcmp(w, "tag") == 0 || strcmp(w, "tags") == 0) gst.tagging = true;
         if (in_list(w, GIT_TO_REV_VERBS)) gst.to_rev = true;
         if (strcmp(w, "rename") == 0 || strcmp(w, "renaming") == 0) gst.renaming = true;
         if (in_list(w, GIT_REF_LEADERS)) gst.ref_noun = true;
