@@ -150,7 +150,8 @@
   .play-in input::placeholder { color: var(--dim); }
   .play-in input:disabled { opacity: .6; }
   .play-out {
-    margin: 0; padding: 6px 24px 18px; min-height: 7.5em; overflow-x: auto;
+    margin: 0; padding: 6px 24px 18px; min-height: 7.5em; max-height: 28em; overflow: auto;
+    color-scheme: dark;
     font: 14.5px/1.75 var(--mono);
   }
   .play-out div { white-space: pre; min-height: 1.75em; }
@@ -671,6 +672,24 @@
       badge.classList.toggle('live', !!live);
     }
     const split = s => s.replace(/\n$/, '').split('\n');
+    // Shell-like words, for a line that starts with options: --list git,
+    // -v git "undo last commit". Quotes group and are dropped.
+    function words(s) {
+      const w = [];
+      let cur = '', inWord = false, q = null;
+      for (const c of s) {
+        if (q) { if (c === q) q = null; else cur += c; continue; }
+        if (c === "'" || c === '"') { q = c; inWord = true; continue; }
+        if (/\s/.test(c)) { if (inWord) { w.push(cur); cur = ''; inWord = false; } continue; }
+        cur += c; inWord = true;
+      }
+      if (inWord) w.push(cur);
+      return w;
+    }
+    // Running needs a shell: the page only prints.
+    const RUN_OPTS = ['-x', '--exec', '-y', '--yes', '--force', '-xy', '-yx'];
+    // These print text, not a command.
+    const INFO_OPTS = ['-l', '--list', '-h', '--help', '-V', '--version', '--shell'];
 
     function update() {
       const q = input.value.trim().replace(/^nls\s+/, '');
@@ -682,7 +701,22 @@
         setBadge('0 network requests · 0 tokens', '', true);
         return;
       }
-      const args = explain.checked ? ['--explain', '--', q] : ['--', q];
+      // A request goes in whole, as the Ctrl+G widget sends it; a line that
+      // starts with an option (--list, --help, -v ...) is split into words.
+      let args = ['--', q], info = false;
+      if (q.startsWith('-')) {
+        args = words(q);
+        const end = args.findIndex(a => a === '--' || !a.startsWith('-'));
+        const opts = end < 0 ? args : args.slice(0, end);
+        const run = opts.find(a => RUN_OPTS.includes(a));
+        info = opts.some(a => INFO_OPTS.includes(a) || a.startsWith('--shell='));
+        if (run) {
+          show([[`${run}: running commands needs your own shell; here nls only prints them.`, 'c']]);
+          setBadge('0 network requests · 0 tokens', '', true);
+          return;
+        }
+      }
+      if (explain.checked && !args.includes('--explain') && !args.includes('-e')) args.unshift('--explain');
       let r;
       try {
         r = nls.run(args);
@@ -692,7 +726,7 @@
         do { nls.run(args); n++; dt = performance.now() - t0; } while (dt < 4 && n < 500);
         const us = dt * 1000 / n;
         const t = us < 1000 ? `${Math.max(1, Math.round(us))} µs` : `${(us / 1000).toFixed(1)} ms`;
-        setBadge(`${r.rc === 0 ? 'compiled' : 'answered'} in ${t} · 0 network requests · 0 tokens`,
+        setBadge(`${r.rc === 0 && !info ? 'compiled' : 'answered'} in ${t} · 0 network requests · 0 tokens`,
                  `Mean of ${n} runs of nls's main() in this tab, in WebAssembly (after a warm-up). With no tool named, that includes trying all eight.`,
                  true);
       } catch (e) {
@@ -705,7 +739,9 @@
       // As a terminal shows it: notes (stderr) first, then the command.
       const lines = [];
       if (r.err) for (const l of split(r.err)) lines.push([l, r.rc === 0 ? 'c' : 'e']);
-      if (r.out) {
+      if (r.out && info) {
+        for (const l of split(r.out)) lines.push([l, '']);
+      } else if (r.out) {
         const o = split(r.out);
         cmd = o[0];
         lines.push([o[0], 'o cmd']);

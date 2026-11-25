@@ -36,6 +36,11 @@ function argLists() {
         const k = JSON.stringify(args);
         if (!seen.has(k)) { seen.add(k); lists.push(args); }
     };
+    // The options the playground passes through (not --version: the
+    // native build stamps its commit, the wasm build doesn't).
+    for (const a of [['--list'], ['--help'], ['--shell', 'zsh'], ['--shell', 'bash'], ['--list', 'nope']])
+        add(a);
+    for (const t of TOOLS) add(['--list', t]);
     for (const [file, col] of Object.entries(SUITES)) {
         const text = fs.readFileSync(path.join(root, 'tests', file), 'utf8');
         for (const line of text.split('\n')) {
