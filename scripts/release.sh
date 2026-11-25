@@ -72,7 +72,14 @@ if ! grep -q "^## \[$V\]" CHANGELOG.md; then
 fi
 
 git add src/nl.h man/nls.1 docs/index.html packaging/homebrew/nls.rb CHANGELOG.md
-git commit -q -m "Release $V"
+# Tagging the current, never-tagged version with everything already up to
+# date (version, man page date, changelog) leaves nothing to commit: the
+# tag then goes on the current commit.
+if git diff --cached --quiet; then
+    echo "release: nothing to update; tagging the current commit" >&2
+else
+    git commit -q -m "Release $V"
+fi
 git tag -a "v$V" -m "nls $V"
 
 echo "Committed and tagged v$V. To publish it:"
