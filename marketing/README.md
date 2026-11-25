@@ -63,12 +63,12 @@ even on a plane.
 This run was not staged. It is real output:
 
 ```console
-$ nls -x -y ffmpeg "extract from talk.mp4 the first 10 seconds into intro.mp4"
+$ nls -x -y ffmpeg "keep the first 10 seconds of talk.mp4 into intro.mp4"
 → ffmpeg -i talk.mp4 -t 10 -c copy intro.mp4
 ```
 
 Why it lands:
-- **No parsing rules to learn.** The prompt is messy, natural English.
+- **No parsing rules to learn.** The prompt is plain, natural English.
 - **The output name is respected.** "into intro.mp4" became the output file.
 - **The result is better than what most people would type by hand.** It uses
   `-c copy`, so there's no re-encode and it finishes almost instantly.
@@ -139,7 +139,7 @@ $ nls find "delete all node_modules directories"
 find . -mindepth 1 -type d -name node_modules -prune -exec rm -rf {} +
 
 $ nls find "delete files"
-nls: refusing to delete everything; say which files (e.g. '*.log', named 'core', older than 30 days)
+nls: refusing to delete everything; say which files (e.g. '*.log', named 'core', older than 30 days) (find_delete)
 ```
 
 The find examples show the traps people fall into by hand:

@@ -22,7 +22,7 @@ Enter
 Show
 
 # 1. The ffmpeg flags nobody remembers
-Type `nls ffmpeg "extract from talk.mp4 the first 10 seconds into intro.mp4"`
+Type `nls ffmpeg "keep the first 10 seconds of talk.mp4 into intro.mp4"`
 Sleep 400ms
 Enter
 Sleep 2.5s

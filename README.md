@@ -177,9 +177,9 @@ jq's slurp). `nls -v` shows every tool's score.
   `find` and `convert`, which are read as verbs there:
   `nls "find TODO in src"` is a grep.
 
-When this was written, 447 of the 452 golden prompts in `tests/cases.tsv`
-gave the same command without their tool. Four are refused as unclear ("what changed
-yesterday"), and one is reported as a close call between grep and find.
+When this was written, 465 of the 471 golden prompts in `tests/cases.tsv`
+gave the same command without their tool. Five are refused as unclear ("what changed
+yesterday", "what haven't I pulled"), and one is reported as a close call between grep and find.
 The tests require that a command printed without a warning is always the
 golden one.
 
@@ -362,7 +362,7 @@ uncertain match. To see the dry run without running anything, use `nls -v`.
 | `curl 'delete https://api.example.com/users/42 with token $TOKEN'` | `curl -sS -X DELETE -H "Authorization: Bearer $TOKEN" 'https://api.example.com/users/42'` |
 | `curl "get json from api.github.com/users/octocat"` | `curl -sS -H 'Accept: application/json' 'https://api.github.com/users/octocat' \| jq .` |
 | `curl "get https://self.local ignoring ssl errors, retry 3 times, timeout 10s"` | `curl -sS -k --retry 3 --max-time 10 'https://self.local'` |
-| `curl "how long does https://example.com take"` | `curl -sS -o /dev/null -w 'dns: %{time_namelookup}s\n…total: %{time_total}s\n' 'https://example.com'` |
+| `curl "how long does https://example.com take"` | `curl -sS -o /dev/null -w 'dns:        %{time_namelookup}s\n…total:      %{time_total}s\n' 'https://example.com'` |
 | `magick "resize hero.png to width 800 convert to webp quality 85"` | `magick hero.png -resize 800x -quality 85 hero.webp` |
 | `magick "make sprite.png transparent background"` | `magick sprite.png -fuzz 5% -transparent white sprite_transparent.png` |
 | `magick "shrink photo.jpg to 1920x1080 only if larger"` | `magick photo.jpg -resize '1920x1080>' photo_resized.jpg` |
@@ -399,7 +399,9 @@ Run `nls --list` to see all templates.
      are compiled in (`src/matcher.c`).
    - Templates missing a required slot are blocked. If a blocked template
      scores higher than any valid one, `nls` reports what is missing instead of
-     guessing.
+     guessing. It does the same when the valid one only matched generic words
+     or "this commit": `tag this commit` asks for the tag's name rather than
+     reverting the commit.
    - Ties go to the template that uses more of what the user said, then the
      more specific one, then the one matched by real words rather than filler
      ("make video.mp4 smaller" compresses; "make" alone doesn't make it a GIF).
@@ -416,8 +418,10 @@ Run `nls --list` to see all templates.
      When both are used, "and" binds tighter than "or" (as in jq), and nls
      prints the grouping it chose on stderr: `.a is 1 or .b is 2 and .c is 3`
      is read as `.a is 1 or (.b is 2 and .c is 3)`.
-   - jq ranges: `where .age between 20 and 40` (or "within") keeps items with
-     `.age >= 20 and .age <= 40`; reversed bounds are put in order.
+   - jq ranges: `where .age between 20 and 40` (or "within", or "from 20 to
+     40") keeps items with `.age >= 20 and .age <= 40`; reversed bounds are
+     put in order. Sorting "from highest to lowest" is descending, "lowest to
+     highest" ascending.
    - For jq, if the input file exists, `nls` reads its first non-blank byte to
      see whether it is an array or an object. It then skips templates that
      can't work on that shape. For example, `get .name` becomes
@@ -451,7 +455,10 @@ Run `nls --list` to see all templates.
    - For git, names are sorted by the word before them: the branch acted on
      (`branch x`, `switch to x`, `merge x`) is `BRANCH`, the revision worked
      from (`from main`, `onto main`, `3 commits ago` → `HEAD~3`, a hash) is
-     `REV`, and `not on main` / `since v1.0` is `EXCLUDE` (→ `main..`).
+     `REV`, and `not on main` / `since v1.0` is `EXCLUDE` (→ `main..`). With
+     "tag" in the request, a version such as `v1.0` is the tag's name
+     (`tag this commit v1.0`), and a negation before push or pull ("what
+     haven't I pushed") means unpushed or unpulled commits.
      `last 3 commits` is a count, `by alice` / `by me` an author, `in the
      last 2 weeks` → `--since='2 weeks ago'`, `lines 10 to 20` → `-L 10,20`.
      Quoted text is a message or search string unless it looks like a path.

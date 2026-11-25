@@ -23,7 +23,7 @@ removed.
 > that sends my file names to an API and sometimes invents flags. So I built
 > `nls`, a small C11 program that turns plain English into the exact command:
 >
->     $ nls ffmpeg "extract from talk.mp4 the first 10 seconds into intro.mp4"
+>     $ nls ffmpeg "keep the first 10 seconds of talk.mp4 into intro.mp4"
 >     ffmpeg -i talk.mp4 -t 10 -c copy intro.mp4
 >
 >     $ nls jq "in users.json how many users have emails"
@@ -136,7 +136,7 @@ path". Ask for code review.
 > exact command out. Offline. No AI. 250 KB. 🧵
 > <demo.gif>
 >
-> 2/ `nls ffmpeg "extract from talk.mp4 the first 10 seconds into intro.mp4"`
+> 2/ `nls ffmpeg "keep the first 10 seconds of talk.mp4 into intro.mp4"`
 > → `ffmpeg -i talk.mp4 -t 10 -c copy intro.mp4`
 > It even picks `-c copy`, so there's no re-encode.
 >
@@ -191,7 +191,7 @@ path". Ask for code review.
 
 > Small side project I'm proud of: **nls**, a natural-language shell.
 >
-> You type `nls ffmpeg "extract from talk.mp4 the first 10 seconds into
+> You type `nls ffmpeg "keep the first 10 seconds of talk.mp4 into
 > intro.mp4"` and get `ffmpeg -i talk.mp4 -t 10 -c copy intro.mp4`. It does
 > the same for jq, grep, find, tar, git, curl and ImageMagick: `nls grep "which python files
 > contain TODO"` gives `grep -rlE --include='*.py' -e TODO .`,
