@@ -150,9 +150,23 @@ typedef struct {
     bool low_confidence;                     /* weak evidence: see NL_CONFIDENT_SCORE */
 } MatchResult;
 
+/* A destructive template: its command deletes data, overwrites it or
+ * rewrites shared state. With -x, nls says what it destroys, runs the dry
+ * run first and runs the command only on a typed "y"; -y skips that only
+ * together with --force. */
+typedef struct {
+    const char *id;                          /* template id                         */
+    const char *what;                        /* "deletes the matching files for good" */
+    const char *dry_run;                     /* a harmless preview in the template
+                                                grammar, taking the same slots;
+                                                NULL if the tool has none           */
+} Danger;
+
 /* templates.c */
 extern const CommandTemplate NL_TEMPLATES[];
 extern const size_t NL_TEMPLATE_COUNT;
+/* The template's Danger entry, or NULL if its command destroys nothing. */
+const Danger *nl_danger(const CommandTemplate *tpl);
 
 /* lexer.c */
 ToolId nl_tool_from_name(const char *name);

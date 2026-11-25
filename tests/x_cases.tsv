@@ -1,0 +1,45 @@
+# setup	answer	nls arguments	exit	check ($OUT, $ERR: nls's stdout, stderr; see run_x_tests.sh)
+#
+# A destructive command shows its dry run on stderr, then only a typed y runs it.
+-	y	-x find 'delete .log files'	0	[ ! -e a.log ] && [ ! -e sub/c.log ] && [ -e keep.txt ] && grep -qxF "nls: dry run: find . -type f -name '*.log' -print" "$ERR" && grep -qxF '  ./sub/c.log' "$ERR" && [ ! -s "$OUT" ]
+-	YES	-x find 'delete .log files'	0	[ ! -e a.log ]
+-	enter	-x find 'delete .log files'	130	[ -e a.log ] && grep -qF '[type y to run / Enter to abort]' "$ERR" && grep -qxF 'nls: aborted' "$ERR"
+-	n	-x find 'delete .log files'	130	[ -e a.log ]
+-	y please	-x find 'delete .log files'	130	[ -e a.log ]
+-	-	-x find 'delete .log files'	130	[ -e a.log ]
+# -y doesn't skip that without --force, and --force alone doesn't either.
+-	-	-x -y find 'delete .log files'	130	[ -e a.log ] && grep -qF '(-y ignored; add --force to skip it)' "$ERR"
+-	y	-x -y find 'delete .log files'	0	[ ! -e a.log ]
+-	-	-x --force find 'delete .log files'	130	[ -e a.log ]
+-	-	-x -y --force find 'delete .log files'	0	[ ! -e a.log ] && [ ! -e sub/c.log ] && ! grep -q 'dry run' "$ERR"
+-	-	-xy --force find 'delete .log files'	0	[ ! -e a.log ]
+-	-	--force -x -y find 'delete .log files'	0	[ ! -e a.log ]
+# Safe commands are unchanged: Enter runs them, -y skips the question.
+-	enter	-x find 'list .log files'	0	grep -qxF './sub/c.log' "$OUT" && ! grep -q 'destructive' "$ERR"
+-	n	-x find 'list .log files'	130	[ ! -s "$OUT" ]
+-	-	-x -y find 'list .log files'	0	grep -qxF './a.log' "$OUT"
+printf 'two\n' > keep.txt && git commit -qam two	-	-x -y git 'undo last commit'	0	[ "$(git rev-list --count HEAD)" = 1 ]
+git branch side	-	-x -y git 'delete branch side'	0	! git rev-parse -q --verify side
+# A long dry run is cut at 20 lines, an empty one says so, and control
+# characters in it are shown as '?'.
+i=1; while [ $i -le 25 ]; do : > n$i.log; i=$((i+1)); done	n	-x find 'delete .log files'	130	grep -qxF '  ... and 8 more lines' "$ERR" && [ "$(grep -c '^  \./' "$ERR")" = 20 ] && [ -e n25.log ]
+-	n	-x find 'delete .bak files'	130	grep -qxF '  (no output)' "$ERR"
+: > "$(printf 'evil\033[2K.log')"	n	-x find 'delete .log files'	130	grep -qxF '  ./evil?[2K.log' "$ERR"
+# git: clean -n, diff --stat and push --dry-run are the dry runs.
+-	y	-x git 'delete untracked files'	0	[ ! -e a.log ] && [ ! -e sub ] && [ -e x.tmp ] && grep -qxF '  Would remove a.log' "$ERR" && grep -qxF '  Would remove sub/' "$ERR"
+-	n	-x git 'delete untracked and ignored files'	130	[ -e x.tmp ] && grep -qxF '  Would remove x.tmp' "$ERR"
+printf 'two\n' > keep.txt && git commit -qam two	y	-x git 'throw away the last commit and its changes'	0	grep -qF ' keep.txt | 2 +-' "$ERR" && [ "$(cat keep.txt)" = keep ] && [ "$(git rev-list --count HEAD)" = 1 ]
+printf 'more\n' >> keep.txt	y	-x git 'discard changes to keep.txt'	0	grep -qF ' keep.txt | 1 +' "$ERR" && [ "$(cat keep.txt)" = keep ]
+-	n	-x git 'discard changes to keep.txt'	130	grep -qxF '  (no output)' "$ERR"
+git init -q --bare ../origin.git && git remote add origin ../origin.git && git branch side && git push -q origin main side	y	-x git 'delete branch side on origin'	0	grep -qF '[deleted]' "$ERR" && [ -z "$(git ls-remote origin refs/heads/side)" ]
+git init -q --bare ../origin.git && git remote add origin ../origin.git && git push -q -u origin main && git commit -q --amend -m changed	y	-x git 'force push after rebase'	0	grep -qF '(forced update)' "$ERR" && [ "$(git rev-parse origin/main)" = "$(git rev-parse HEAD)" ]
+# A failed dry run stops the command.
+-	y	-x git 'force push after rebase'	1	grep -qF 'nls: the dry run failed' "$ERR"
+mkdir "$W/plain" && cd "$W/plain" && : > a.log	y	-x git 'delete untracked files'	1	grep -qF 'not a git repository' "$ERR" && grep -qF 'the command was not run' "$ERR" && [ -e a.log ]
+# No dry run for these: the warning and the question only.
+-	-	-x -y curl 'delete https://example.invalid/users/42'	130	grep -qxF 'nls: destructive: asks the server to delete the resource' "$ERR" && ! grep -q 'dry run' "$ERR"
+git branch side	y	-x git 'force delete branch side'	0	! git rev-parse -q --verify side && grep -qF 'nls: destructive: deletes the branches' "$ERR"
+# --force never covers an uncertain match.
+-	-	-x -y --force curl 'get https://example.invalid and save to out.html'	130	grep -qF 'not running an uncertain match' "$ERR"
+# --list marks the destructive templates.
+-	-	--list find	0	grep -q '^find_delete  .*(destructive)$' "$OUT" && ! grep -q '^find_files .*(destructive)' "$OUT"

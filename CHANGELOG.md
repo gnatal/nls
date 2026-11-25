@@ -45,6 +45,21 @@ The release workflow uses the section matching the tag as the release notes.
 - git: `nls git "what changed yesterday"` gives `git log --since='yesterday' -p`
   instead of an error.
 
+### Safety around `-x`
+
+- Destructive commands are tagged: deleting files with find (`-delete`,
+  `rm -rf`), `git reset --hard`, `git restore`, `git clean`, `git branch -D`,
+  `git push --delete`, `git push --force-with-lease` and `curl -X DELETE`.
+  `nls --list` marks them "(destructive)".
+- With `-x`, nls says what such a command destroys and runs a dry run first
+  where the tool allows it (`find … -print`, `git clean -n`,
+  `git push --dry-run`, `git diff --stat`). The dry run's output goes to
+  stderr, cut at 20 lines. If the dry run fails, the command isn't run.
+- Only a typed `y` runs a destructive command; Enter aborts it.
+- `-y` no longer skips that question unless `--force` is given too. Even
+  `--force` doesn't skip it for an uncertain match.
+- `-v` shows a destructive command's dry run without running anything.
+
 ## [0.1.0] - 2026-11-24
 
 First release.

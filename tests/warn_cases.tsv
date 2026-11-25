@@ -22,3 +22,24 @@ jq	users.json where .age between 20 and 40	-
 jq	users.json where either .a is 1 or .b is 2 and .c is 3	grouping as: (either .a is 1 or .b is 2) and .c is 3
 jq	get .name from users.json where .age around 30	don't know how to compare .age "around"
 grep	search for TODO in no_such_folder_here	no file or folder named 'no_such_folder_here'
+# Destructive commands: -v shows what they destroy and their dry run (-x
+# runs the dry run first and asks for a typed y; see x_cases.tsv). One line
+# per destructive template, so a misspelled id in DANGERS[] shows up here.
+-v find	delete .log files	dry run: find . -type f -name '*.log' -print
+-v find	delete all node_modules directories	dry run: find . -mindepth 1 -type d -name node_modules -prune -print
+-v find	delete empty directories in build/	dry run: find build/ -mindepth 1 -type d -empty -print
+-v find	delete empty directories in build/	destructive: deletes the matching empty files or directories for good, and matching directories emptied along the way
+-v git	throw away the last 3 commits	dry run: git diff --stat HEAD~3
+-v git	undo the last reset	dry run: git diff --stat 'HEAD@{1}'
+-v git	undo the rebase	dry run: git diff --stat ORIG_HEAD
+-v git	discard changes to src/main.c	dry run: git diff --stat -- src/main.c
+-v git	restore src/main.c from 2 commits ago	dry run: git diff --stat HEAD~2 -- src/main.c
+-v git	delete untracked files in build/	dry run: git clean -nd -- build/
+-v git	delete untracked and ignored files	dry run: git clean -ndx
+-v git	delete branch feature-x on origin	dry run: git push --dry-run origin --delete feature-x
+-v git	force push after rebase	dry run: git push --dry-run --force-with-lease
+-v git	force delete branch feature-x	destructive: deletes the branches even if their commits aren't merged
+-v curl	delete https://api.example.com/users/42	destructive: asks the server to delete the resource
+# Without -v, printing a destructive command adds nothing to stderr.
+find	delete .log files	-
+git	delete untracked files	-

@@ -25,6 +25,7 @@ nls: $(SRC) $(HDR)
 test: nls
 	sh tests/run_tests.sh ./nls
 	sh tests/run_warn_tests.sh ./nls
+	sh tests/run_x_tests.sh ./nls
 	sh tests/run_jq_exec.sh ./nls
 	sh tests/run_grep_exec.sh ./nls
 	sh tests/run_find_exec.sh ./nls

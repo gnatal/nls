@@ -15,8 +15,14 @@
  *  - jq: when several JSON paths are given, paths followed by a comparator
  *    ("is", ">", "contains", ...) come first. So in filter templates
  *    {JSON_PATH:0} is the condition and {JSON_PATH:1} an optional projection.
+ *  - A template whose command deletes, overwrites or force-pushes also needs
+ *    an entry in DANGERS[] at the end of this file (what it destroys, and a
+ *    dry run if the tool has one). -x then warns, runs the dry run first and
+ *    asks for a typed "y"; `nls --list` marks it "(destructive)".
  */
 #include "nl.h"
+
+#include <string.h>
 
 #define KW(...)  { __VA_ARGS__ }
 #define REQ(...) { __VA_ARGS__ }
@@ -624,7 +630,7 @@ const CommandTemplate NL_TEMPLATES[] = {
       KW(GIT_UNDO, "mixed", "unstaged", "unstage", "unstaging"), REQ(0),
       "git reset --mixed {TARGET}", SHAPE_ANY },
 
-    { TOOL_GIT, "git_undo_hard", "Delete the last N commits AND their changes (destructive)",
+    { TOOL_GIT, "git_undo_hard", "Delete the last N commits AND their changes",
       "throw away the last commit and its changes",
       KW(GIT_UNDO, "hard", "discard", "discarding", "throw", "away", "lose", "losing", "destroy",
          "delete", "drop", "erase", "wipe", "permanently", "completely"), REQ(0),
@@ -806,7 +812,7 @@ const CommandTemplate NL_TEMPLATES[] = {
          "removed", "get"), REQ(F),
       "git checkout \"$(git rev-list -n 1 HEAD -- {FILE:0})^\" -- {FILE:0}", SHAPE_ANY },
 
-    { TOOL_GIT, "git_discard", "Discard uncommitted changes to files (destructive)",
+    { TOOL_GIT, "git_discard", "Discard uncommitted changes to files",
       "discard changes to src/main.c",
       KW("discard", "revert", "undo", "reset", "throw", "away", "drop", "lose", "changes",
          "local", "uncommitted", "restore", "edits", "modifications"), REQ(F),
@@ -824,7 +830,7 @@ const CommandTemplate NL_TEMPLATES[] = {
          "list", "show", "which"), REQ(0),
       "git clean -nd{PATHS}", SHAPE_ANY },
 
-    { TOOL_GIT, "git_clean", "Delete untracked files and folders (destructive)",
+    { TOOL_GIT, "git_clean", "Delete untracked files and folders",
       "delete untracked files",
       KW("clean", "untracked", "delete", "remove", "wipe", "purge", "files"), REQ(0),
       "git clean -fd{PATHS}", SHAPE_ANY },
@@ -1258,3 +1264,56 @@ const CommandTemplate NL_TEMPLATES[] = {
 };
 
 const size_t NL_TEMPLATE_COUNT = sizeof NL_TEMPLATES / sizeof NL_TEMPLATES[0];
+
+/* ============================ destructive ============================
+ * Templates whose command deletes, overwrites or force-pushes. `what`
+ * completes "nls: destructive: ..."; the dry run is expanded like the
+ * command, from the same slots, so it must take every slot the command
+ * takes (find and git refuse a template that drops one). It lists what
+ * the command would touch and changes nothing. Its output goes to stderr,
+ * and if it fails (not a repository, no remote, an unreadable folder) the
+ * command isn't run. Tools with no dry run get only the warning and the
+ * typed confirmation. */
+static const Danger DANGERS[] = {
+    { "find_delete", "deletes the matching files for good",
+      FIND_ROOTS " -type f" FIND_TESTS " -print" },
+    { "find_delete_dirs", "deletes the matching directories and everything in them for good",
+      FIND_ROOTS " -mindepth 1 -type d" FIND_TESTS " -prune -print" },
+    /* -delete implies -depth, so a matching directory left empty once its
+     * empty children are gone is deleted too; the dry run can only list
+     * what is empty now. */
+    { "find_delete_empty", "deletes the matching empty files or directories for good, "
+      "and matching directories emptied along the way",
+      FIND_ROOTS " -mindepth 1{KIND} -empty" FIND_TESTS " -print" },
+
+    /* git diff --stat X: the files whose working copy the reset or restore
+     * changes back to X (staged and unstaged edits included). */
+    { "git_undo_hard", "drops the commits from the branch and discards uncommitted changes for good",
+      "git diff --stat {TARGET}" },
+    { "git_undo_reset", "moves the branch and discards uncommitted changes for good",
+      "git diff --stat 'HEAD@{1}'" },
+    { "git_undo_merge", "moves the branch back and discards uncommitted changes for good",
+      "git diff --stat ORIG_HEAD" },
+    { "git_discard", "discards unstaged changes to the files for good",
+      "git diff --stat{PATHS}" },
+    { "git_restore_from", "overwrites the files with that version; their unstaged changes are lost",
+      "git diff --stat {REV:0}{PATHS}" },
+    { "git_clean", "deletes untracked files and folders for good",
+      "git clean -nd{PATHS}" },
+    { "git_clean_ignored", "deletes untracked and ignored files for good "
+      "(build output, but also local files such as .env)",
+      "git clean -ndx{PATHS}" },
+    { "git_branch_delete_force", "deletes the branches even if their commits aren't merged", NULL },
+    { "git_branch_delete_remote", "deletes the branch on the remote, for everyone",
+      "git push --dry-run origin --delete {BRANCH:0}<< {BRANCH:1}>><< {BRANCH:2}>>" },
+    { "git_push_force", "overwrites the remote branch with your local history",
+      "git push --dry-run --force-with-lease" },
+
+    { "curl_delete", "asks the server to delete the resource", NULL },
+};
+
+const Danger *nl_danger(const CommandTemplate *tpl) {
+    for (size_t i = 0; i < sizeof DANGERS / sizeof DANGERS[0]; i++)
+        if (strcmp(DANGERS[i].id, tpl->id) == 0) return &DANGERS[i];
+    return NULL;
+}

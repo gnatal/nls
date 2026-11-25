@@ -5,12 +5,29 @@
  *
  * Prints the compiled command to stdout. With -x it shows the command on
  * stderr, asks for confirmation (skip with -y) and runs it via system().
+ * A destructive command (see nl_danger()) is explained, its dry run runs
+ * first, and only a typed "y" runs it; -y skips that only with --force.
  */
+#define _POSIX_C_SOURCE 200809L   /* popen() for dry runs */
 #include "nl.h"
 
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef _WIN32
+#define popen _popen
+#define pclose _pclose
+#endif
+
+/* Lines of dry-run output shown before the rest is only counted. */
+#define NL_DRY_RUN_LINES 20
+
+/* -x, -y and --force */
+typedef struct {
+    bool exec, yes, force;
+} RunMode;
 
 static void usage(FILE *f) {
     fprintf(f,
@@ -21,7 +38,9 @@ static void usage(FILE *f) {
         "\n"
         "options:\n"
         "  -x, --exec       run the command (asks for confirmation)\n"
-        "  -y, --yes        with -x: don't ask for confirmation\n"
+        "  -y, --yes        with -x: don't ask, unless the match is uncertain\n"
+        "                   or the command is destructive\n"
+        "      --force      with -x -y: don't ask for destructive commands either\n"
         "  -v, --verbose    explain slots, tokens and template scores on stderr\n"
         "  -l, --list [tool] list available templates\n"
         "  -h, --help       show this help\n"
@@ -43,7 +62,7 @@ static void list_templates(ToolId only) {
     for (size_t i = 0; i < NL_TEMPLATE_COUNT; i++) {
         const CommandTemplate *t = &NL_TEMPLATES[i];
         if (only != TOOL_UNKNOWN && t->tool != only) continue;
-        printf("%-20s %s\n", t->id, t->description);
+        printf("%-20s %s%s\n", t->id, t->description, nl_danger(t) ? " (destructive)" : "");
         printf("%-20s   nls %s \"%s\"\n", "", nl_tool_name(t->tool), t->example);
     }
 }
@@ -80,21 +99,40 @@ static void print_context(const ParseContext *ctx) {
     fputc('\n', stderr);
 }
 
-static bool confirm(void) {
+/* Show `prompt` on stderr and read one line from the terminal (from stdin
+ * when there is none, e.g. in a script). False at end of input. Only a
+ * terminal echoes the answer, so otherwise end the prompt's line here. */
+static bool ask(const char *prompt, char *line, size_t size) {
     FILE *tty = fopen("/dev/tty", "r");
     FILE *in = tty ? tty : stdin;
-    char line[64];
-    fprintf(stderr, "[Enter to run / Ctrl+C to abort] ");
+    fprintf(stderr, "%s", prompt);
     fflush(stderr);
-    bool ok = fgets(line, sizeof line, in) != NULL && line[0] != 'n' && line[0] != 'N';
+    bool got = fgets(line, (int)size, in) != NULL;
+    if (!got || !tty) fputc('\n', stderr);
     if (tty) fclose(tty);
-    return ok;
+    return got;
 }
 
-static int run_command(const char *cmd) {
-    fflush(stdout);
-    int rc = system(cmd);
-    if (rc == -1) { perror("nls: system"); return 127; }
+/* Enter runs, "n" aborts. */
+static bool confirm(void) {
+    char line[64];
+    return ask("[Enter to run / Ctrl+C to abort] ", line, sizeof line) &&
+           line[0] != 'n' && line[0] != 'N';
+}
+
+/* Destructive commands: only "y" or "yes" (any case) runs; Enter aborts. */
+static bool confirm_destructive(void) {
+    char line[64];
+    if (!ask("[type y to run / Enter to abort] ", line, sizeof line)) return false;
+    char *p = line + strspn(line, " \t");
+    size_t n = strcspn(p, " \t\r\n");
+    if (p[n + strspn(p + n, " \t\r\n")] != '\0') return false;   /* more than one word */
+    for (size_t k = 0; k < n; k++) p[k] = (char)tolower((unsigned char)p[k]);
+    return (n == 1 && p[0] == 'y') || (n == 3 && strncmp(p, "yes", 3) == 0);
+}
+
+/* Exit code from a system() / pclose() status. */
+static int exit_status(int rc) {
 #ifdef _WIN32
     return rc;
 #else
@@ -103,6 +141,53 @@ static int run_command(const char *cmd) {
     if ((rc & 0x7f) != 0) return 128 + (rc & 0x7f);
     return (rc >> 8) & 0xff;
 #endif
+}
+
+static int run_command(const char *cmd) {
+    fflush(stdout);
+    int rc = system(cmd);
+    if (rc == -1) { perror("nls: system"); return 127; }
+    return exit_status(rc);
+}
+
+/* Run a dry run with no input, showing its output (stdout and stderr) on
+ * stderr, indented: stdout stays the real command's. Only the first
+ * NL_DRY_RUN_LINES lines are shown, the rest counted. Control characters
+ * are shown as '?', so a crafted file name can't redraw the preview.
+ * Returns the dry run's exit code. */
+static int run_dry_run(const char *dry) {
+    char sh[NL_MAX_CMD_LEN + 32];
+    int n = snprintf(sh, sizeof sh, "exec </dev/null 2>&1; %s", dry);
+    if (n < 0 || (size_t)n >= sizeof sh) return 127;
+    fflush(stdout);
+    FILE *p = popen(sh, "r");
+    if (!p) { perror("nls: popen"); return 127; }
+
+    char buf[1024];
+    unsigned long lines = 0;
+    bool line_start = true;
+    while (fgets(buf, sizeof buf, p)) {
+        size_t len = strlen(buf);
+        if (line_start) lines++;
+        if (lines <= NL_DRY_RUN_LINES) {
+            for (size_t k = 0; k < len; k++) {
+                unsigned char c = (unsigned char)buf[k];
+                if ((c < 0x20 && c != '\n' && c != '\t') || c == 0x7f) buf[k] = '?';
+            }
+            if (line_start) fputs("  ", stderr);
+            fputs(buf, stderr);
+        }
+        line_start = len > 0 && buf[len - 1] == '\n';
+    }
+    if (!line_start && lines <= NL_DRY_RUN_LINES) fputc('\n', stderr);
+    int rc = pclose(p);
+
+    if (lines == 0)
+        fprintf(stderr, "  (no output)\n");
+    else if (lines > NL_DRY_RUN_LINES)
+        fprintf(stderr, "  ... and %lu more line%s\n", lines - NL_DRY_RUN_LINES,
+                lines - NL_DRY_RUN_LINES == 1 ? "" : "s");
+    return rc == -1 ? 127 : exit_status(rc);
 }
 
 /* Print the words that did / didn't count toward the match. */
@@ -147,24 +232,45 @@ static bool warn_uncertain(const ParseContext *ctx, const MatchResult *m, const 
         fprintf(stderr, "nls: picked \"%s\" (%s); this request also fits:\n",
                 m->best->description, m->best->id);
         for (int k = 0; k < nalts; k++)
-            fprintf(stderr, "  %-22s %s\n  %-22s   %s\n", alts[k]->id, alts[k]->description, "",
-                    alt_cmd[k]);
+            fprintf(stderr, "  %-22s %s%s\n  %-22s   %s\n", alts[k]->id, alts[k]->description,
+                    nl_danger(alts[k]) ? " (destructive)" : "", "", alt_cmd[k]);
         fprintf(stderr, "nls: rephrase to choose (see 'nls -v' for scores)\n");
     }
     return true;
 }
 
-/* Print the command, or show it and run it (-x). With -y the prompt is
- * skipped, except for an uncertain match. */
-static int finish(const char *cmd, bool exec, bool yes, bool uncertain) {
-    if (!exec) {
+/* Print the command, or show it and run it (-x). Running asks first unless
+ * -y, and -y doesn't skip that for an uncertain match, nor for a
+ * destructive command without --force. A destructive command is explained
+ * and its dry run (`dry`, "" if none) runs before the question; only a
+ * typed "y" runs it, and a failed dry run stops it. */
+static int finish(const char *cmd, const Danger *danger, const char *dry, RunMode mode,
+                  bool uncertain) {
+    if (!mode.exec) {
         printf("%s\n", cmd);
         return 0;
     }
     fprintf(stderr, "\xe2\x86\x92 %s\n", cmd);
-    if (yes && uncertain)
+    bool ask_first = !mode.yes || uncertain || (danger && !mode.force);
+    if (!ask_first) return run_command(cmd);
+
+    if (danger) {
+        fprintf(stderr, "nls: destructive: %s\n", danger->what);
+        if (dry[0]) {
+            fprintf(stderr, "nls: dry run: %s\n", dry);
+            int rc = run_dry_run(dry);
+            if (rc != 0) {
+                fprintf(stderr, "nls: the dry run failed (exit %d), so the command was not run\n", rc);
+                return 1;
+            }
+        }
+    }
+    if (mode.yes && uncertain)
         fprintf(stderr, "nls: not running an uncertain match without confirmation (-y ignored)\n");
-    if ((!yes || uncertain) && !confirm()) {
+    else if (mode.yes)
+        fprintf(stderr, "nls: not running a destructive command without confirmation "
+                        "(-y ignored; add --force to skip it)\n");
+    if (danger ? !confirm_destructive() : !confirm()) {
         fprintf(stderr, "nls: aborted\n");
         return 130;
     }
@@ -172,17 +278,19 @@ static int finish(const char *cmd, bool exec, bool yes, bool uncertain) {
 }
 
 int main(int argc, char **argv) {
-    bool exec = false, yes = false, verbose = false;
+    RunMode mode = { false, false, false };
+    bool verbose = false;
     int i = 1;
 
     for (; i < argc; i++) {
         const char *a = argv[i];
         if (strcmp(a, "--") == 0) { i++; break; }
         if (a[0] != '-' || a[1] == '\0') break;
-        if (strcmp(a, "-x") == 0 || strcmp(a, "--exec") == 0) exec = true;
-        else if (strcmp(a, "-y") == 0 || strcmp(a, "--yes") == 0) yes = true;
+        if (strcmp(a, "-x") == 0 || strcmp(a, "--exec") == 0) mode.exec = true;
+        else if (strcmp(a, "-y") == 0 || strcmp(a, "--yes") == 0) mode.yes = true;
+        else if (strcmp(a, "--force") == 0) mode.force = true;
         else if (strcmp(a, "-v") == 0 || strcmp(a, "--verbose") == 0) verbose = true;
-        else if (strcmp(a, "-xy") == 0 || strcmp(a, "-yx") == 0) exec = yes = true;
+        else if (strcmp(a, "-xy") == 0 || strcmp(a, "-yx") == 0) mode.exec = mode.yes = true;
         else if (strcmp(a, "-h") == 0 || strcmp(a, "--help") == 0) { usage(stdout); return 0; }
         else if (strcmp(a, "-V") == 0 || strcmp(a, "--version") == 0) { printf("nls %s\n", NL_VERSION); return 0; }
         else if (strcmp(a, "-l") == 0 || strcmp(a, "--list") == 0) {
@@ -271,7 +379,7 @@ int main(int argc, char **argv) {
                                  "(e.g. \"where .a is x and .b > 3\")\n");
             return 1;
         }
-        return finish(cmd, exec, yes, false);
+        return finish(cmd, NULL, "", mode, false);
     }
 
     if (verbose && ctx.flags[0]) fprintf(stderr, "modifiers: %s\n", ctx.flags);
@@ -319,6 +427,23 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+    /* A destructive command's dry run comes from the same request: the
+     * template with its preview text in place of the command. */
+    const Danger *danger = nl_danger(m.best);
+    char dry[NL_MAX_CMD_LEN] = "";
+    if (danger && danger->dry_run) {
+        CommandTemplate preview = *m.best;
+        preview.flag_template = danger->dry_run;
+        if (!nl_expand(&ctx, &preview, dry, sizeof dry, err, sizeof err)) {
+            if (verbose) fprintf(stderr, "dry run: can't build it: %s\n", err);
+            dry[0] = '\0';
+        }
+    }
+    if (verbose && danger) {
+        fprintf(stderr, "destructive: %s\n", danger->what);
+        if (dry[0]) fprintf(stderr, "dry run: %s\n", dry);
+    }
+
     bool uncertain = warn_uncertain(&ctx, &m, cmd);
-    return finish(cmd, exec, yes, uncertain);
+    return finish(cmd, danger, dry, mode, uncertain);
 }

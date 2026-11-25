@@ -4,7 +4,12 @@
 #
 # tests/find_exec_cases.tsv lines:  prompt<TAB>expected
 #   expected            the command's output (lines sorted, whitespace-normalized)
-#   removed: <paths>    for destructive prompts: the paths that are gone afterwards
+#   removed: <paths>    for destructive prompts: the paths that are gone afterwards.
+#                       The prompt's dry run (from `nls -v`) is run first and must
+#                       list exactly those paths (a listed directory covers its
+#                       contents). Deleting empty directories also takes parents
+#                       emptied along the way, which no dry run can list, so the
+#                       tree has no nested empty directories.
 #   !ERR                nls itself must refuse the prompt
 # The tree is rebuilt in a temp dir for every case: sizes and modification
 # times can't be stored in git.
@@ -51,10 +56,29 @@ while IFS="$TAB" read -r prompt expected; do
     case "$expected" in
     'removed: '*)
         expected=${expected#removed: }
+        dry=$("$NL" -v find "$prompt" 2>&1 >/dev/null | sed -n 's/^dry run: //p')
+        if [ -z "$dry" ]; then
+            fail=$((fail+1)); printf 'FAIL (no dry run): nls find "%s"\n' "$prompt"; continue
+        fi
+        eval "$dry" 2>/dev/null | sed 's|^\./||' > "$W/listed"
         command find . | LC_ALL=C sort > "$W/before"
         eval "$cmd" >/dev/null 2>&1
         command find . | LC_ALL=C sort > "$W/after"
-        actual=$(LC_ALL=C comm -23 "$W/before" "$W/after" | normalize) ;;
+        actual=$(LC_ALL=C comm -23 "$W/before" "$W/after" | normalize)
+        LC_ALL=C comm -23 "$W/before" "$W/after" | sed 's|^\./||' > "$W/removed"
+        # paths removed but not listed (nor inside a listed directory), and
+        # paths listed but not removed
+        off=$(awk 'FILENAME == ARGV[1] { listed[$0] = 1; next }
+                   { gone[$0] = 1; ok = $0 in listed
+                     for (p in listed) if (index($0, p "/") == 1) ok = 1
+                     if (!ok) bad = bad " " $0 " (not listed)" }
+                   END { for (p in listed) if (!(p in gone)) bad = bad " " p " (not removed)"
+                         print bad }' "$W/listed" "$W/removed")
+        if [ -n "$off" ]; then
+            fail=$((fail+1))
+            printf 'FAIL (dry run): nls find "%s"\n  dry run: %s\n  mismatch:%s\n' "$prompt" "$dry" "$off"
+            continue
+        fi ;;
     *)
         actual=$(eval "$cmd" 2>&1 | LC_ALL=C sort | normalize) ;;
     esac

@@ -38,6 +38,8 @@ dependencies.
 make          # cc -std=c11 -O2 -Wall -Wextra -pedantic -Werror
 make test     # all tests (each execution suite skips if its tool is missing):
               #  - command-string goldens        tests/cases.tsv
+              #  - -x: answers at the prompt, dry runs
+              #    and --force, in a temp git repo      tests/x_cases.tsv
               #  - jq: run on tests/fixtures/*.json     tests/jq_exec_cases.tsv
               #  - grep: run on tests/fixtures/grep/    tests/grep_exec_cases.tsv
               #  - find: run on a generated temp tree   tests/find_exec_cases.tsv
@@ -77,8 +79,11 @@ transparency, colour space, EXIF and individual pixel colours.
 nls [options] <tool> "<what you want>"
 
   -x, --exec        run the command (shows it, asks for confirmation)
-  -y, --yes         with -x: skip confirmation (not for uncertain matches)
-  -v, --verbose     show extracted slots, tokens and template scores
+  -y, --yes         with -x: skip confirmation (not for uncertain matches
+                    or destructive commands)
+      --force       with -x -y: skip it for destructive commands too
+  -v, --verbose     show extracted slots, tokens and template scores,
+                    and a destructive command's dry run
   -l, --list [tool] list all templates with example prompts
 ```
 
@@ -90,6 +95,42 @@ curl -s https://api.example.com/users | eval "$(nls jq 'list .email of each user
 ```
 
 Quote the whole prompt so your shell doesn't interpret `>`, `'` or `*`.
+
+### Destructive commands
+
+Commands that delete or overwrite data, or rewrite a remote, are tagged as
+destructive, and `nls --list` marks them. They are: deleting files with
+find, `git reset --hard`, `git restore`, `git clean`, `git branch -D`,
+`git push --delete`, force pushes and `curl -X DELETE`. With `-x`, nls says
+what the command destroys and, where the tool allows it, runs a dry run
+first. Only a typed `y` runs it; Enter aborts.
+
+```console
+$ nls -x find "delete .DS_Store files recursively"
+→ find . -type f -name .DS_Store -delete
+nls: destructive: deletes the matching files for good
+nls: dry run: find . -type f -name .DS_Store -print
+  ./.DS_Store
+  ./src/.DS_Store
+[type y to run / Enter to abort] y
+```
+
+| Command | Dry run |
+|---|---|
+| `find … -delete`, `find … -exec rm -rf {} +` | `find … -print` |
+| `git clean -fd`, `git clean -fdx` | `git clean -nd`, `git clean -ndx` |
+| `git push origin --delete x`, `git push --force-with-lease` | the same command with `--dry-run` |
+| `git reset --hard X`, `git restore [--source=X] -- files` | `git diff --stat [X] [-- files]` |
+| `git branch -D`, `curl -X DELETE` | none: only the warning and the question |
+
+The dry run changes nothing. Its output goes to stderr, and only the first
+20 lines are shown. If it fails (not a git repository, no remote, a folder
+find can't read), the command isn't run. Deleting empty directories also
+removes parents left empty along the way, which the dry run can't list.
+
+`-y` doesn't skip this question. `-y --force` does, and runs the command
+without a dry run, but even `--force` never skips the question for an
+uncertain match. To see the dry run without running anything, use `nls -v`.
 
 ## Examples
 
@@ -258,7 +299,9 @@ Run `nls --list` to see all templates.
 
 - `nls` never runs anything without `-x`, and `-x` asks first unless you also
   pass `-y`. Even with `-y` it asks when the match was uncertain (a close
-  runner-up or a low-confidence match, see above).
+  runner-up or a low-confidence match, see above), and for a destructive
+  command unless you add `--force`. A destructive command also gets its dry
+  run first and needs a typed `y` (see [Destructive commands](#destructive-commands)).
 - Files and strings are always shell-quoted. jq string values are passed with
   `--arg`, never spliced into the jq program.
 - grep patterns are passed with `-e`, so a pattern starting with `-` is never
@@ -278,9 +321,10 @@ Run `nls --list` to see all templates.
   branch names git itself would reject (`..x`, `x.lock`, leading `-`).
   Messages and search text are always single-quoted; file lists go after
   `--`. Destructive commands (`reset --hard`, `clean -fd`, `restore`,
-  `branch -D`) are only run with `-x` after confirmation, and the safe
-  variant wins ties (`undo last commit` → `reset --soft`, `delete branch` →
-  `-d`, "which untracked files would be deleted" → `clean -n`).
+  `branch -D`, `push --delete`, force pushes) get a dry run and a typed
+  confirmation with `-x`, and the safe variant wins ties (`undo last
+  commit` → `reset --soft`, `delete branch` → `-d`, "which untracked files
+  would be deleted" → `clean -n`).
 - curl only accepts `http(s)` URLs from a strict character allowlist and
   always single-quotes them (`[`/`]` add `-g` so curl doesn't glob them).
   Bearer tokens given as `$NAME` or an uppercase name are emitted as

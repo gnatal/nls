@@ -10,15 +10,7 @@ Both passes are done (see "Done"). Open issues go here as they turn up.
 
 ## 2. Safety around `-x`
 
-- **Tag destructive templates as dangerous:** `find -delete`, `rm -rf`,
-  `git reset --hard`, `git clean -fdx`, `git push --delete`. For these, `-y`
-  should not skip the confirmation without an extra `--force` (or should at
-  least show a prominent warning).
-- **Dry run first** where the tool has one: `find … -print` before
-  `-delete`, `git clean -n` before `git clean -fd`.
-- Section 1 already makes `-y` ask for an uncertain match (a close runner-up
-  or a low-confidence match). Destructive templates still need their own tag,
-  so a confident but dangerous match also gets the extra step.
+Done (see "Done"). Open issues go here as they turn up.
 
 ## 3. User experience
 
@@ -86,6 +78,15 @@ makes ties more likely.
   magick falls through like git (`combine … into anim.gif at 10fps`
   animates). Several images into a `.gif` animate even without an fps,
   and grep's "count" comes before a pattern (`count TODO in src/`).
+
+- **Safety around `-x`.** Destructive templates (find deletes,
+  `git reset --hard`, `git restore`, `git clean`, `git branch -D`,
+  `git push --delete`, force pushes, `curl -X DELETE`) are tagged in
+  `DANGERS[]` (`src/templates.c`) and marked in `--list`. `-x` says what
+  they destroy and runs a dry run first (`find … -print`, `git clean -n`,
+  `git push --dry-run`, `git diff --stat`). A failed dry run stops the
+  command, and only a typed `y` runs it. `-y` skips that only with
+  `--force`, and never for an uncertain match.
 
 - **Per-tool modules.** `lexer.c` and `expander.c` were split into
   `lexer_<tool>.c` / `expander_<tool>.c` behind small interfaces
