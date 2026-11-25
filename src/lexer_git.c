@@ -548,6 +548,13 @@ static size_t classify_git(ParseContext *ctx, const RawTok *toks, size_t count, 
         add_intent(ctx, "@staged+");
         return 1;
     }
+    if (strcmp(lw, "merged") == 0 && st->deleting && prev &&
+        (strcmp(prev, "not") == 0 || strcmp(prev, "isn't") == 0 || strcmp(prev, "isnt") == 0 ||
+         strcmp(prev, "never") == 0 || strcmp(prev, "un") == 0)) {
+        /* "delete spike even if not merged": force, not "delete merged branches" */
+        add_intent(ctx, "unmerged");
+        return 1;
+    }
     if (strcmp(lw, "merged") == 0 && st->deleting) {
         /* "delete merged branches": two tokens, so it outscores "delete branch X" */
         add_intent(ctx, "@delmerged");

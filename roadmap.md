@@ -8,19 +8,11 @@ wrong command that gets run.
 
 Both passes are done (see "Done"). Open issues go here as they turn up:
 
-- 36 wordings that pick the wrong template, or none, are listed as known
-  misses at the end of `tests/paraphrase_cases.tsv`. The paraphrase runner
-  says when one starts matching. Of these, 9 still give a wrong command
-  without any warning (none of them destructive):
-  - git: "uncommit the last 2 commits and keep the changes unstaged" →
-    `git diff`; "delete branch spike even if not merged" → `git branch -d`
-    (which refuses, so it is only unhelpful)
-  - jq: "how many entries per .role", "group by .category", "what fields
-    does .user have", "sort by .price from highest to lowest"
-  - ffmpeg: "turn talk.mp4 from 00:10 to 00:14 into a gif" ignores the cut
-  - magick: "create a favicon.ico from logo.png" → a GIF; "get rid of the
-    transparency" → makes a color transparent
-  The others are refused or flagged as low-confidence / ambiguous.
+- 26 wordings that pick the wrong template, or none, are listed as known
+  misses at the end of `tests/paraphrase_cases.tsv`. None of them gives a
+  wrong command silently: 9 are refused and 17 are flagged as
+  low-confidence or ambiguous. The paraphrase runner says when one starts
+  matching.
 
 ## 2. Safety around `-x`
 

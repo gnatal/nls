@@ -26,6 +26,26 @@ The release workflow uses the section matching the tag as the release notes.
   With "volume", "sound" or "audio" in the request, "down" / "up" mean
   quieter / louder (`turn the sound up` also no longer extracts the audio),
   and `speed up the audio` speeds up instead of extracting.
+- git: `uncommit the last 2 commits and keep the changes unstaged` gave
+  `git diff HEAD~2 HEAD`; it now resets with `--mixed`.
+- git: `delete branch spike even if not merged` used `git branch -d`, which
+  refuses an unmerged branch; "not merged" now means a force delete.
+  `delete branches that are not merged` deleted the *merged* ones; it now
+  asks which branch.
+- jq: `how many entries per .role` counted `.role` itself; it now counts
+  per value. `group items.json by .category` counted instead of grouping:
+  a plain "group by" gives `group_by(...)`, and "group … and count" counts.
+- jq: `what fields does .user have` printed `.user`; it now lists its keys
+  ("have" after a question about fields is not a filter condition).
+  `show the top level keys of data.json` is no longer refused.
+- jq: `sort … from highest to lowest` sorted ascending; "highest to lowest"
+  / "lowest to highest" now set the direction.
+- ffmpeg: `turn talk.mp4 from 00:10 to 00:14 into a gif` converted the whole
+  video; "from T to T" is now a segment, like "between".
+- magick: `create a favicon.ico from logo.png` made a GIF of both files; the
+  file before "from <image>" is the output, and an `.ico` output made that
+  way is a favicon. `get rid of the transparency` made a colour transparent
+  instead of removing transparency.
 - The low-confidence warning printed `only  matched` with an empty word when
   the match came from "this commit"; it now says a generic phrase matched.
 

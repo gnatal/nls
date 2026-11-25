@@ -74,6 +74,8 @@ ffmpeg	ffmpeg_normalize	normalize the loudness of talk.mp4
 ffmpeg	ffmpeg_normalize	even out the audio levels in movie.mkv
 ffmpeg	ffmpeg_info	what codec is talk.mp4
 ffmpeg	ffmpeg_info	print the metadata of movie.mkv
+ffmpeg	ffmpeg_gif_cut	turn talk.mp4 from 00:10 to 00:14 into a gif
+ffmpeg	ffmpeg_gif	make a gif from in.mp4
 
 # jq
 jq	jq_paths	what does the structure of config.json look like
@@ -161,6 +163,13 @@ jq	jq_tsv	turn items.json into tab separated values
 jq	jq_flatten	flatten the nested arrays in data.json
 jq	jq_flatten	flatten lists.json
 jq	jq_slurp	slurp log.ndjson into an array
+jq	jq_keys_path	what fields does .user have in data.json
+jq	jq_count_by	how many users.json entries per .role
+jq	jq_sort_desc	sort items.json by .price from highest to lowest
+jq	jq_group	group items.json by .category
+jq	jq_sort_by	sort items.json by .price from lowest to highest
+jq	jq_count_by	group users.json by .team and count
+jq	jq_keys	what keys does data.json have
 
 # grep
 grep	grep_search	look for 'FIXME' in src/
@@ -345,6 +354,9 @@ git	git_stash_list	show my stashes
 git	git_stash_list	what's in the stash list
 git	git_reflog	show the reflog
 git	git_reflog	recover a lost commit
+git	git_undo_mixed	uncommit the last 2 commits and keep the changes unstaged
+git	git_branch_delete_force	delete branch spike even if not merged
+git	git_undo_soft	undo the last commit but keep the changes
 
 # curl
 curl	curl_get	fetch https://example.com/page
@@ -429,6 +441,8 @@ magick	magick_info	identify photo.jpg
 magick	magick_info	describe logo.png
 magick	magick_info_verbose	print every property of photo.jpg
 magick	magick_info_verbose	show the full exif of photo.jpg
+magick	magick_flatten_white	get rid of the transparency in icon.png
+magick	magick_favicon	create a favicon.ico from logo.png
 
 # no tool given
 -	ffmpeg_cut	cut talk.mp4 from 00:10 to 00:25
@@ -455,29 +469,22 @@ magick	magick_info_verbose	show the full exif of photo.jpg
 # get another template, or none). Not failures; the runner says when one
 # starts matching, so the "!" can come off. See roadmap.md, section 1.
 !ffmpeg	ffmpeg_seek	skip the first 1:30 of talk.mp4
-!ffmpeg	ffmpeg_gif_cut	turn talk.mp4 from 00:10 to 00:14 into a gif
 !ffmpeg	ffmpeg_hflip	flip movie.mkv left to right
 !ffmpeg	ffmpeg_info	how long is talk.mp4
 !jq	jq_paths	show all paths in data.json
-!jq	jq_keys	show the top level keys of data.json
-!jq	jq_keys_path	what fields does .user have in data.json
+jq	jq_keys	show the top level keys of data.json
 !jq	jq_type	what kind of value is data.json
-!jq	jq_count_by	how many users.json entries per .role
 !jq	jq_first	show the first element of data.json
 !jq	jq_last	show the last entry of data.json
-!jq	jq_sort_desc	sort items.json by .price from highest to lowest
-!jq	jq_group	group items.json by .category
 !jq	jq_unique_by	list unique .category in items.json
 !jq	jq_max	which item in items.json has the largest .price
 !jq	jq_min	cheapest item in items.json by .price
 !jq	jq_slurp	read events.jsonl into one array
 !grep	grep_max	stop after 10 matches of 'WARN' in server.log
 !git	git_unstage	remove src/app.c from the staging area
-!git	git_undo_mixed	uncommit the last 2 commits and keep the changes unstaged
 !git	git_undo_hard	throw away my last 2 commits and their changes
 !git	git_squash	squash the last 3 commits into one
 !git	git_count	count commits since last month
-!git	git_branch_delete_force	delete branch spike even if not merged
 !git	git_push_force	force push my branch
 !git	git_tag_push	push all tags to origin
 !curl	curl_patch	send a patch of changes.json to https://api.example.com/items/7
@@ -486,7 +493,5 @@ magick	magick_info_verbose	show the full exif of photo.jpg
 !curl	curl_verbose	show verbose output for https://example.com
 !curl	curl_verbose	debug the request to https://api.example.com
 !magick	magick_compress	reduce the file size of hero.png
-!magick	magick_flatten_white	get rid of the transparency in icon.png
 !magick	magick_append	put left.jpg right.jpg next to each other into both.jpg
-!magick	magick_favicon	create a favicon.ico from logo.png
 !curl	curl_verbose	verbose request to https://example.com

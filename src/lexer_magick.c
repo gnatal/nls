@@ -99,7 +99,8 @@ static bool magick_int(const char *s, const char *const *suffixes, char *out, si
     return true;
 }
 
-static void magick_add_path(ParseContext *ctx, const RawTok *toks, size_t i, MagickState *st) {
+static void magick_add_path(ParseContext *ctx, const RawTok *toks, size_t count, size_t i,
+                            MagickState *st) {
     (void)st;
     size_t at = 0;
     const char *pw = prev_word(toks, i, &at);
@@ -108,7 +109,17 @@ static void magick_add_path(ParseContext *ctx, const RawTok *toks, size_t i, Mag
      * "add a border to photo.jpg" is the input itself */
     bool dest = pw && (in_list(pw, MAGICK_DEST_LEADERS) ||
                        (strcmp(pw, "to") == 0 && nl_count_slots(ctx, SLOT_FILE) > 0));
+    /* "create favicon.ico from logo.png": the file before "from <file>" is
+     * the output */
+    bool made_from = !dest && i + 2 < count && !toks[i + 1].quoted &&
+                     strcmp(toks[i + 1].lower, "from") == 0 &&
+                     looks_like_file(toks[i + 2].text, TOOL_GREP) && !strpbrk(toks[i].text, "*?");
+    if (made_from) dest = true;
     add_slot(ctx, dest ? SLOT_DEST : SLOT_FILE, toks[i].text);
+    /* "create favicon.ico from logo.png" asks for a favicon ("convert logo.png
+     * to logo.ico" is a plain conversion) */
+    const char *oext = made_from ? extension_of(toks[i].text) : NULL;
+    if (oext && strcasecmp(oext, "ico") == 0) add_intent(ctx, "ico");
     /* "combine a.png b.png into anim.gif": several images into one .gif is an
      * animation, not a strip (unless "side by side" etc. outweighs it) */
     const char *dext = dest ? extension_of(toks[i].text) : NULL;
@@ -135,7 +146,7 @@ static size_t classify_magick(ParseContext *ctx, const RawTok *toks, size_t coun
 
     /* 1. Quoted: a path, a colour, or text nls has no use for */
     if (toks[i].quoted) {
-        if (looks_like_file(t, TOOL_GREP)) magick_add_path(ctx, toks, i, st);
+        if (looks_like_file(t, TOOL_GREP)) magick_add_path(ctx, toks, count, i, st);
         else if (magick_hex_color(t) || in_list(lw, MAGICK_COLORS)) add_slot(ctx, SLOT_COLOR, lw);
         else add_slot(ctx, SLOT_QUOTED_STR, t);
         return 1;
@@ -343,7 +354,7 @@ static size_t classify_magick(ParseContext *ctx, const RawTok *toks, size_t coun
 
     /* 12. Paths, file names and globs ("frames/\*.png") */
     if (strchr(t, '/') || looks_like_file(t, TOOL_GREP)) {
-        magick_add_path(ctx, toks, i, st);
+        magick_add_path(ctx, toks, count, i, st);
         return 1;
     }
 

@@ -226,6 +226,14 @@ void nl_lex_ffmpeg(ParseContext *ctx, const RawTok *toks, size_t count, const Js
             add_intent(ctx, lw);
             continue;
         }
+        /* "from 00:10 to 00:14" names a segment, like "between 00:10 and
+         * 00:14": one word for it, so it doesn't count twice for the cut
+         * templates that list both */
+        if (strcmp(lw, "from") == 0 && i + 3 < count && is_timestamp(toks[i + 1].lower) &&
+            strcmp(toks[i + 2].lower, "to") == 0 && is_timestamp(toks[i + 3].lower)) {
+            add_intent(ctx, "between");
+            continue;
+        }
         if (has_sound && (strcmp(lw, "down") == 0 || strcmp(lw, "up") == 0) &&
             !(prev && in_list(prev, pace))) {
             add_intent(ctx, lw[0] == 'd' ? "quieter" : "louder");

@@ -80,7 +80,8 @@ jq	get .config.port from data.json	jq -r '.config.port' data.json
 jq	show .config in data.json	jq -r '.config' data.json
 jq	sort users.json by .age descending	jq 'sort_by(.age) | reverse' users.json
 jq	sort users.json by .age	jq 'sort_by(.age)' users.json
-jq	group users.json by .country	jq 'group_by(.country) | map({key: (.[0].country | tostring), count: length})' users.json
+jq	group users.json by .country	jq 'group_by(.country)' users.json
+jq	group users.json by .country and count	jq 'group_by(.country) | map({key: (.[0].country | tostring), count: length})' users.json
 jq	unique .country values in users.json	jq 'map(.country) | unique' users.json
 jq	sum .age in users.json	jq 'map(.age) | add' users.json
 jq	average .age in users.json	jq 'map(.age) | add / length' users.json
@@ -554,3 +555,13 @@ git	what tags exist	git tag --sort=-creatordate
 git	which branches exist	git branch --sort=-committerdate
 # "commit staged changes" commits the index only, without git add -A
 git	commit staged changes with the message 'add parser'	git commit -m 'add parser'
+# formerly silent wrong picks
+git	uncommit the last 2 commits and keep the changes unstaged	git reset --mixed HEAD~2
+git	delete branch spike even if not merged	git branch -D spike
+git	delete branches that are not merged	!ERR
+jq	how many users.json entries per .role	jq 'group_by(.role) | map({key: (.[0].role | tostring), count: length})' users.json
+jq	what fields does .user have in data.json	jq '.user | keys' data.json
+jq	sort items.json by .price from highest to lowest	jq 'sort_by(.price) | reverse' items.json
+magick	create a favicon.ico from logo.png	magick logo.png -background none -define icon:auto-resize=256,64,48,32,16 favicon.ico
+magick	get rid of the transparency in icon.png	magick icon.png -background white -alpha remove -alpha off icon_flat.png
+magick	convert logo.png to logo.ico	magick logo.png logo.ico

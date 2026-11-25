@@ -142,6 +142,7 @@ void nl_lex_jq(ParseContext *ctx, const RawTok *toks, size_t count, const JsonIn
     bool path_cond[NL_MAX_SLOTS] = { false };
     size_t path_count = 0;
     bool seen_path = false;
+    bool asks_keys = false;   /* "what fields does .user have" */
 
     for (size_t i = 0; i < count && !ctx->overflow; i++) {
         const char *t = toks[i].text;
@@ -191,6 +192,24 @@ void nl_lex_jq(ParseContext *ctx, const RawTok *toks, size_t count, const JsonIn
             add_slot(ctx, SLOT_QUOTED_STR, t);
             continue;
         }
+        /* 5b. Sort direction: "from highest to lowest" is descending, "lowest to
+         *     highest" ascending (both words appear either way) */
+        static const char *const high[] = {
+            "highest", "largest", "biggest", "greatest", "most", "newest", "latest", "max", NULL
+        };
+        static const char *const low[] = {
+            "lowest", "smallest", "least", "fewest", "oldest", "earliest", "min", NULL
+        };
+        if ((in_list(lw, high) || in_list(lw, low)) && next && strcmp(next, "to") == 0 &&
+            i + 2 < count && !toks[i + 2].quoted) {
+            const char *to = toks[i + 2].lower;
+            bool desc = in_list(lw, high) && in_list(to, low);
+            if (desc || (in_list(lw, low) && in_list(to, high))) {
+                add_intent(ctx, desc ? "descending" : "ascending");
+                i += 2;
+                continue;
+            }
+        }
         /* 6. Ranges: "from 20 to 40" means between; "not between" means outside */
         if (seen_path && from_to_range(toks, count, i)) { add_intent(ctx, "between"); continue; }
         if ((strcmp(lw, "between") == 0 || strcmp(lw, "within") == 0) && prev &&
@@ -215,6 +234,19 @@ void nl_lex_jq(ParseContext *ctx, const RawTok *toks, size_t count, const JsonIn
             seen_path = true;
             continue;
         }
+        /* "what fields does .user have": asking for keys. The "have" that
+         * follows is grammar, not a condition ("users that have .avatar") */
+        static const char *const key_nouns[] = {
+            "fields", "keys", "properties", "attributes", "columns", NULL
+        };
+        static const char *const have[] = { "have", "has", "contain", "contains", NULL };
+        if (in_list(lw, key_nouns)) {
+            asks_keys = true;
+            lex_intent(ctx, lw);
+            add_intent(ctx, "@keys");
+            continue;
+        }
+        if (asks_keys && in_list(lw, have)) continue;
         lex_intent(ctx, lw);
     }
 

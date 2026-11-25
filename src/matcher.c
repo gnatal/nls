@@ -239,7 +239,12 @@ static int slots_used(const ParseContext *ctx, const CommandTemplate *tpl) {
             used++;
             memcpy(seen[nseen++], ctx->tool == TOOL_MAGICK ? "DEST:0" : "FILE:1", 7);
         }
-        if (strncmp(out, "{OUT_FILE|!", 11) != 0 && nl_find_slot(ctx, SLOT_EXT, 0)) {
+        /* an open extension takes the requested format; a forced one
+         * ({OUT_FILE|!gif}) only counts when it is the format asked for */
+        const char *ext = nl_find_slot(ctx, SLOT_EXT, 0);
+        bool forced = strncmp(out, "{OUT_FILE|!", 11) == 0;
+        size_t flen = forced ? strcspn(out + 11, "|}") : 0;
+        if (ext && (!forced || (strlen(ext) == flen && strncmp(out + 11, ext, flen) == 0))) {
             used++;
             memcpy(seen[nseen++], "EXT:0", 6);
         }

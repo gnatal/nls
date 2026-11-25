@@ -221,12 +221,12 @@ const CommandTemplate NL_TEMPLATES[] = {
 
     { TOOL_JQ, "jq_keys", "List the keys of an object",
       "list keys of data.json",
-      KW("keys", "fields", "properties", "attributes", "columns", "key"), REQ(0),
+      KW("keys", "fields", "properties", "attributes", "columns", "key", "@keys"), REQ(0),
       "jq 'keys'" JQ_FILE, SHAPE_ANY },
 
     { TOOL_JQ, "jq_keys_path", "List the keys of a nested object",
       "list keys of .config in data.json",
-      KW("keys", "fields", "properties", "attributes", "columns", "key"), REQ(P),
+      KW("keys", "fields", "properties", "attributes", "columns", "key", "@keys"), REQ(P),
       "jq '{JSON_PATH:0} | keys'" JQ_FILE, SHAPE_OBJECT },
 
     { TOOL_JQ, "jq_type", "Show the JSON type of the input",
@@ -249,9 +249,14 @@ const CommandTemplate NL_TEMPLATES[] = {
       KW("count", "length", "how", "many", "much", "number", "size", "len"), REQ(P),
       "jq '{JSON_PATH:0} | length'" JQ_FILE, SHAPE_OBJECT },
 
+    { TOOL_JQ, "jq_group", "Group array elements by a field",
+      "group users.json by .team",
+      KW("group", "grouped", "grouping", "by", "bucket", "categorize"), REQ(P),
+      "jq 'group_by({JSON_PATH:0})'" JQ_FILE, SHAPE_ARRAY },
+
     { TOOL_JQ, "jq_count_by", "Count items grouped by a field",
       "count users.json by .status",
-      KW("count", "group", "by", "per", "occurrences", "frequency", "tally", "breakdown"), REQ(P),
+      KW("count", "group", "how", "many", "by", "per", "occurrences", "frequency", "tally", "breakdown"), REQ(P),
       "jq 'group_by({JSON_PATH:0}) | map({key: (.[0]{JSON_PATH:0} | tostring), count: length})'" JQ_FILE, SHAPE_ARRAY },
 
     { TOOL_JQ, "jq_first_n", "Take the first N elements",
@@ -385,11 +390,6 @@ const CommandTemplate NL_TEMPLATES[] = {
       "sort data.json",
       KW("sort", "sorted", "order", "ordered", "arrange", "asc", "ascending"), REQ(0),
       "jq 'sort'" JQ_FILE, SHAPE_ARRAY },
-
-    { TOOL_JQ, "jq_group", "Group array elements by a field",
-      "group users.json by .team",
-      KW("group", "grouped", "grouping", "by", "bucket", "categorize"), REQ(P),
-      "jq 'group_by({JSON_PATH:0})'" JQ_FILE, SHAPE_ARRAY },
 
     { TOOL_JQ, "jq_unique_by", "Distinct values of a field",
       "unique .country values in users.json",
@@ -622,12 +622,12 @@ const CommandTemplate NL_TEMPLATES[] = {
 
     { TOOL_GIT, "git_undo_soft", "Undo the last N commits, keeping their changes staged",
       "undo last 2 commits keep changes staged",
-      KW(GIT_UNDO, "soft", "staged", "keep", "keeping"), REQ(0),
+      KW(GIT_UNDO, "soft", "staged", "keep", "keeping", "changes"), REQ(0),
       "git reset --soft {TARGET}", SHAPE_ANY },
 
     { TOOL_GIT, "git_undo_mixed", "Undo the last N commits, keeping their changes unstaged",
       "undo the last commit and unstage its changes",
-      KW(GIT_UNDO, "mixed", "unstaged", "unstage", "unstaging"), REQ(0),
+      KW(GIT_UNDO, "mixed", "unstaged", "unstage", "unstaging", "keep", "keeping", "changes"), REQ(0),
       "git reset --mixed {TARGET}", SHAPE_ANY },
 
     { TOOL_GIT, "git_undo_hard", "Delete the last N commits AND their changes",
@@ -1138,7 +1138,8 @@ const CommandTemplate NL_TEMPLATES[] = {
 
     { TOOL_MAGICK, "magick_flatten_white", "Remove transparency (white background)",
       "remove transparency from logo.png",
-      KW("flatten", "opaque", "transparency", "alpha", "remove", "drop", "strip", "solid"), REQ(F),
+      KW("flatten", "opaque", "transparency", "alpha", "remove", "drop", "strip", "solid", "rid",
+         "without"), REQ(F),
       "magick {FILE:0} -background white -alpha remove -alpha off " MOUT("flat"), SHAPE_ANY },
 
     { TOOL_MAGICK, "magick_rotate", "Rotate clockwise (default 90 degrees)",
