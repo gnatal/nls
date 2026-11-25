@@ -14,16 +14,13 @@ Done (see "Done"). Open issues go here as they turn up.
 
 ## 3. User experience
 
-- **Infer the tool.** In `nls "cut input.mp4 from 0:10 to 0:25"`, the
-  `.mp4` extension, a `.json` file or a URL often already says which tool is
-  meant. Score the prompt against every tool and pick the best one.
-- **Shell integration.** A zsh/bash widget that replaces the typed prompt
-  with the generated command on the command line, so the user can edit it
-  before running.
-- **Shell completions** for tools and options, and a **man page**.
-- **`--explain`.** Break the generated command down flag by flag
-  ("`-crf 28` sets quality, lower is better"). This turns nls into a learning
-  tool as well as a generator.
+Done (see "Done"). Open issues go here as they turn up:
+
+- A fish version of the shell integration and completions (not written:
+  fish wasn't available to test them).
+- Inference refuses requests with no clue to the tool ("what changed
+  yesterday", "go back to main"). More clue words could pick these up, but
+  every word added is a chance to pull another tool's request away.
 
 ## 4. Engineering
 
@@ -87,6 +84,15 @@ makes ties more likely.
   `git push --dry-run`, `git diff --stat`). A failed dry run stops the
   command, and only a typed `y` runs it. `-y` skips that only with
   `--force`, and never for an uncertain match.
+
+- **User experience.** The tool can be left out: the request is compiled
+  for every tool and scored with clues from the request (files, URLs,
+  archives, git words), and nls refuses or warns rather than guess
+  (`tests/infer_cases.tsv`). `--explain` breaks every command nls can
+  generate down part by part (checked by `tests/run_explain_tests.sh`).
+  `nls --shell zsh|bash` binds Ctrl+G to turn the typed request into the
+  command on the line. bash/zsh completions and a man page are installed by
+  `make install`, `install.sh` and the Homebrew formula.
 
 - **Per-tool modules.** `lexer.c` and `expander.c` were split into
   `lexer_<tool>.c` / `expander_<tool>.c` behind small interfaces

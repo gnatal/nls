@@ -1,0 +1,74 @@
+# expected tool (or !ERR)	request given without a tool
+# The tool is the first word of the command (mkdir ... && magick: magick,
+# ffprobe: ffmpeg). See run_infer_tests.sh.
+#
+# Files, URLs and archives name the tool.
+ffmpeg	cut input.mp4 from 00:10 to 00:25
+ffmpeg	convert demo.mov to gif
+ffmpeg	extract the audio from lecture.mkv as mp3
+ffmpeg	speed up clip.mov 2x
+ffmpeg	remove the sound from talk.mp4
+ffmpeg	rotate phone.mp4 90 degrees clockwise
+ffmpeg	grab a frame from movie.mp4 at 01:23
+ffmpeg	shrink recording.webm
+ffmpeg	make video.mp4 smaller
+ffmpeg	cut "my holiday video.mp4" from 1:00 to 2:00
+jq	get .name from users.json where .age > 30
+jq	count the items in data.json
+jq	sort users.json by .age
+jq	convert users.json to csv
+jq	pretty print data.json
+jq	get .users[].email
+grep	find lines with ERROR in server.log
+grep	search for 'password' in config/
+grep	which files mention deprecated in src/
+grep	count occurrences of FIXME in lib/
+grep	search python files for TODO
+grep	find TODO in src/
+grep	'TODO' in src/
+find	list empty directories
+find	files bigger than 500MB in ~/Downloads
+find	files modified in the last hour
+find	folders named node_modules
+find	files named 'readme*' ignoring case
+find	python files with more than 1000 lines
+tar	extract backup.tar.gz into restore/
+tar	list the contents of logs.tgz
+tar	make a tarball of docs/
+tar	unpack release.tar.xz
+tar	compress src
+tar	compress src/ with xz
+git	undo my last commit
+git	create a branch called feature-login
+git	show the last 5 commits
+git	stash my changes
+git	push this branch to origin
+git	who changed src/app.c
+git	merge feature-x
+git	show src/main.c as of v1.0
+curl	download https://example.com/data.zip
+curl	check if https://example.com is up
+curl	post data.json to https://api.example.com/users
+curl	get api.github.com/user with bearer token GITHUB_TOKEN
+magick	convert logo.png to jpg
+magick	make thumb.jpg 300 pixels wide
+magick	strip the metadata from IMG_0042.jpg
+magick	add a white border to card.png
+magick	crop banner.jpg to 1200x400
+magick	convert all png files in assets/ to webp
+magick	make a favicon from logo.png into public/
+#
+# A tool named in the request wins; "find" and "convert" are verbs.
+jq	use jq to pretty print data.json
+git	git undo last commit
+tar	tar compress src
+grep	find 'x' in src/
+#
+# Nothing points at a tool: refused, not guessed.
+!ERR	go back to main
+!ERR	what changed yesterday
+!ERR	gibberish blah blah
+!ERR	do the thing
+# A tool nls doesn't support is refused, not read as a request.
+!ERR	rsync src/ to backup/
+!ERR	openssl generate a key

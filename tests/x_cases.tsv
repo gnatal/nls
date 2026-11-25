@@ -43,3 +43,13 @@ git branch side	y	-x git 'force delete branch side'	0	! git rev-parse -q --verif
 -	-	-x -y --force curl 'get https://example.invalid and save to out.html'	130	grep -qF 'not running an uncertain match' "$ERR"
 # --list marks the destructive templates.
 -	-	--list find	0	grep -q '^find_delete  .*(destructive)$' "$OUT" && ! grep -q '^find_files .*(destructive)' "$OUT"
+# --explain with -x: the breakdown goes to stderr with the command; stdout
+# stays the command's own.
+-	n	-x -e find 'list .log files'	130	grep -qF 'start searching in the current folder' "$ERR" && grep -qF 'whose name matches' "$ERR" && [ ! -s "$OUT" ]
+-	-	-x -y --explain find 'list .log files'	0	grep -qxF './a.log' "$OUT" && grep -qF 'only regular files' "$ERR"
+# Without a tool: the inferred command gets the same protection.
+-	y	-x 'delete .log files'	0	[ ! -e a.log ] && grep -qxF "nls: dry run: find . -type f -name '*.log' -print" "$ERR"
+-	-	-x -y 'delete .log files'	130	[ -e a.log ] && grep -qF '(-y ignored; add --force to skip it)' "$ERR"
+-	-	-x -y 'list .log files'	0	grep -qxF './a.log' "$OUT"
+# A close call between two tools is uncertain: -y doesn't skip the question.
+-	-	-x -y "find 'keep.txt'"	130	grep -qF 'guessed the tool: grep' "$ERR" && grep -qF 'not running an uncertain match' "$ERR"

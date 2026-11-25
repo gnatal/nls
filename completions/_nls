@@ -1,0 +1,41 @@
+#compdef nls
+# zsh completion for nls. Installed by `make install` into
+# share/zsh/site-functions/; that folder must be on $fpath before compinit.
+
+local -a tools
+tools=(
+  'ffmpeg:video and audio (cut, convert, compress, GIFs)'
+  'jq:JSON (filter, select, count, convert to CSV)'
+  'grep:search inside files'
+  'find:find files by name, type, size or age'
+  'tar:create, list and extract archives'
+  'git:version control'
+  'curl:HTTP requests and downloads'
+  'magick:images (ImageMagick: resize, convert, crop)'
+)
+
+local curcontext=$curcontext state line ret=1
+typeset -A opt_args
+
+_arguments -s -S -C \
+  '(-x --exec)'{-x,--exec}'[run the command (asks for confirmation)]' \
+  '(-y --yes)'{-y,--yes}'[with -x: do not ask, unless uncertain or destructive]' \
+  '--force[with -x -y: do not ask for destructive commands either]' \
+  '(-e --explain)'{-e,--explain}'[explain the command part by part]' \
+  '(-v --verbose)'{-v,--verbose}'[show slots, tokens and template scores]' \
+  '(- *)'{-l,--list}'[list the templates]:tool:->tool' \
+  '(- *)--shell[print the shell integration]:shell:(zsh bash)' \
+  '(- *)'{-h,--help}'[show the help]' \
+  '(- *)'{-V,--version}'[show the version]' \
+  '1:tool or request:->first' \
+  '*:request:_files' && ret=0
+
+case $state in
+  tool)
+    _describe -t tools 'tool' tools && ret=0 ;;
+  first)
+    # a tool, or the first word of a request (the tool is then inferred)
+    _describe -t tools 'tool' tools && ret=0
+    _files && ret=0 ;;
+esac
+return ret

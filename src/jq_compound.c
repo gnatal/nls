@@ -155,7 +155,7 @@ static void push_slot(ParseContext *ctx, SlotType type, const char *value) {
     ctx->slot_count++;
 }
 
-bool nl_jq_compound(const char *prompt, const JsonInfo *json, bool verbose,
+bool nl_jq_compound(const char *prompt, const JsonInfo *json, bool verbose, bool quiet,
                     char *out, size_t out_size, char *err, size_t err_size) {
     static ParseContext pieces_ctx;
     static ParseContext clause_ctx[MAX_CLAUSES];
@@ -304,7 +304,7 @@ bool nl_jq_compound(const char *prompt, const JsonInfo *json, bool verbose,
             push_slot(&synth, SLOT_NUM, nl_find_slot(c, SLOT_NUM, j));
         num_idx += nums;
     }
-    if (mixed || explicit_group) {
+    if ((mixed || explicit_group) && !quiet) {
         /* Say how it was read: the other grouping is a plausible intent. */
         fprintf(stderr, mixed ? "nls: reading \"and\" before \"or\": " : "nls: grouping as: ");
         for (size_t k = 0; k < nclauses; k++) {

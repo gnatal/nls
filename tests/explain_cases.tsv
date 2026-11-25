@@ -1,0 +1,18 @@
+# tool	prompt	text that must start a line of `nls --explain` (leading spaces ignored)
+ffmpeg	cut input.mp4 from 00:10 to 00:25	-ss 00:10             start at 00:10 (seconds or [hh:]mm:ss)
+ffmpeg	compress video.mp4	-crf 28               quality 28: lower is better and bigger (0-51; 18 looks
+ffmpeg	scale in.mp4 to 720p	-vf scale=-2:720      resize to 720 px high (the width keeps the aspect
+jq	get .name from users.json where .age > 30	for each element: keep it only if .age > 30, then take
+jq	users.json where .status is active	for each element: keep it only if .status == "active"
+grep	which python files contain TODO, ignoring case	-l                    list only the names of files with a match
+find	files larger than 100MB modified in the last 7 days	-size +100M           larger than 100 MiB
+find	files larger than 100MB modified in the last 7 days	-mtime -7             modified less than 7 days ago
+tar	compress src/ into backup.tar.gz excluding .git	-f backup.tar.gz      the archive file
+tar	extract backup.tar.gz into dist/	-C dist/              extract into the folder dist/ (it must exist)
+git	undo last 2 commits keep changes staged	HEAD~2                move it to 2 commits before the current one
+git	what's not pushed yet	'@{upstream}..HEAD'   your commits that aren't pushed yet
+git	delete merged branches	-r                    don't run it at all when there is no input
+curl	post data.json to https://api.example.com/users	-d @data.json         send the contents of data.json as the request body
+curl	get https://api.github.com/user with token $GITHUB_TOKEN	send the token from $GITHUB_TOKEN (your shell fills it
+magick	resize hero.png to width 800 convert to webp quality 85	-resize 800x          resize: 800 px wide (the height keeps the aspect ratio)
+magick	rotate photo.jpg 90 degrees counter-clockwise	-rotate -90           rotate 90 degrees counter-clockwise

@@ -9,6 +9,7 @@ numbers change as templates are added.
 | `README.md` | Positioning, messaging, fact sheet (this file) |
 | `launch-posts.md` | Ready-to-edit posts: Show HN, Reddit, X/Bluesky thread, LinkedIn |
 | `demo.tape` | [VHS](https://github.com/charmbracelet/vhs) script that records the terminal demo GIF |
+| `infer-completion.tape` | VHS script for `docs/nls-infer-completion.gif` (tool inference, `-v`, Tab completion, Ctrl+G), shown in the main README |
 | `make-demo-media.sh` | Generates royalty-free demo files (`talk.mp4`, `demo.mp4`, `users.json`, a small `src/` tree, `app.log`, plus old logs, big files, `node_modules/` and `.DS_Store` clutter for the find demo, `.git/`, `node_modules/` and a `release-1.0.tgz` for the tar demo, a `project/` git repo with two authors and a feature branch for the git demo, and a `data.json` body for the curl demo, and `hero.png`, `sprite.png` and `frames/` drawn with ImageMagick for the magick demo) |
 
 ---

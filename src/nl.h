@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdio.h>
 
 /* The release version: bump it here (and in CHANGELOG.md) before tagging
  * vX.Y.Z. `make version` prints it; the release workflow checks the tag. */
@@ -192,8 +193,9 @@ void nl_match_only(const ParseContext *ctx, MatchResult *out, bool verbose, cons
 
 /* jq_compound.c: "where .a is x and .b > 3". Writes the command to `out`.
  * Returns false with `err` set on a refusal, or with `err` empty when the
- * prompt has no conjunction to split at. */
-bool nl_jq_compound(const char *prompt, const JsonInfo *json, bool verbose,
+ * prompt has no conjunction to split at. `quiet` drops the note on stderr
+ * saying how "and"/"or" were grouped. */
+bool nl_jq_compound(const char *prompt, const JsonInfo *json, bool verbose, bool quiet,
                     char *out, size_t out_size, char *err, size_t err_size);
 
 /* expander.c */
@@ -205,5 +207,10 @@ bool nl_expand(const ParseContext *ctx, const CommandTemplate *tpl,
 bool nl_shell_quote(const char *in, char *out, size_t out_size);
 /* curl: does `s` start with http:// or https:// and stay inside the URL allowlist? */
 bool nl_url_ok(const char *s);
+
+/* explain.c: --explain. Print a part-by-part breakdown of `cmd` to `out`.
+ * Parts it can't explain are marked NL_NO_EXPLANATION. */
+#define NL_NO_EXPLANATION "(no explanation)"
+void nl_explain(const char *cmd, FILE *out);
 
 #endif /* NL_H */

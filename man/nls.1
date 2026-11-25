@@ -1,0 +1,272 @@
+.TH NLS 1 2026-11-25 "nls 0.1.0" "User Commands"
+.SH NAME
+nls \- turn plain-English requests into exact shell commands, offline
+.SH SYNOPSIS
+.B nls
+.RI [ options ]
+.RI [ tool ]
+.RI \(dq request \(dq
+.br
+.B nls
+.BR \-l | \-\-list
+.RI [ tool ]
+.br
+.B nls \-\-shell
+.BR zsh | bash
+.SH DESCRIPTION
+.B nls
+compiles a request such as
+.RI \(dq "cut input.mp4 from 00:10 to 00:25" \(dq
+into the command that does it, and prints it:
+.PP
+.RS
+.EX
+$ nls ffmpeg "cut input.mp4 from 00:10 to 00:25"
+ffmpeg \-ss 00:10 \-to 00:25 \-i input.mp4 \-c copy input_cut.mp4
+.EE
+.RE
+.PP
+It works fully offline, without a language model: every command template
+is compiled into the binary, and the request is matched against them by
+keyword, with typed values (files, times, sizes, URLs, JSON paths, ...)
+filled in and shell-quoted.
+.PP
+.B nls
+never runs anything unless asked to with
+.BR \-x .
+.SH TOOLS
+.TP
+.B ffmpeg
+cut, convert, compress, scale and speed up video and audio, make GIFs
+(also reachable as
+.BR ffprobe ).
+.TP
+.B jq
+pick fields, filter with conditions, count, sort, group, convert to CSV.
+.TP
+.B grep
+search inside files, with modifiers such as
+.I "ignoring case"
+or
+.IR "whole word" .
+.TP
+.B find
+find (and delete) files by name, type, size, age or line count.
+.TP
+.B tar
+create, list and extract archives.
+.TP
+.B git
+undo, squash, stash, branch, log, diff, blame, restore, push.
+.TP
+.B curl
+GET, POST, PUT, PATCH, DELETE, downloads, uploads, status checks.
+.TP
+.B magick
+ImageMagick: resize, convert, crop, rotate, compress, favicons, animations
+(also reachable as
+.BR convert ).
+.PP
+Run
+.B nls \-\-list
+.I tool
+to see every template with an example request.
+.SH INFERRING THE TOOL
+The tool may be left out:
+.PP
+.RS
+.EX
+$ nls "convert demo.mov to gif"
+ffmpeg \-i demo.mov \-vf '...' \-loop 0 demo.gif
+.EE
+.RE
+.PP
+The request is then compiled for every tool, and the one that fits best is
+used: its best template's keyword score, plus what the request names \(em a
+media file, an image, a JSON file or path, an archive, a URL, git words
+such as
+.I commit
+or
+.IR branch ,
+a tool's own name
+.RI ( "use jq to ..." ).
+jq, ffmpeg, magick, git and curl only count when the request names
+something of theirs.
+.PP
+When another tool fits about as well and gives a different command, its
+command is shown on stderr, and
+.B \-y
+no longer skips the confirmation. When nothing points at a tool,
+.B nls
+refuses rather than guess; name the tool then.
+.PP
+The first word of a one-argument request can also be the tool
+.RI ( "nls \(dqgit undo last commit\(dq" ),
+except
+.I find
+and
+.IR convert ,
+which are read as verbs there
+.RI ( "find TODO in src" " is a grep)."
+A first word naming a tool
+.B nls
+doesn't support
+.RI ( rsync ,
+.IR openssl ,
+.IR docker ,
+\&...) is refused.
+.SH OPTIONS
+.TP
+.BR \-x ", " \-\-exec
+Run the command: show it on stderr, ask for confirmation, then run it with
+the shell. Enter runs it.
+.TP
+.BR \-y ", " \-\-yes
+With
+.BR \-x :
+don't ask. It is ignored for an uncertain match (see
+.BR \-v )
+and for a destructive command.
+.TP
+.B \-\-force
+With
+.B \-x \-y:
+don't ask for destructive commands either (and skip their dry run). It
+never skips the question for an uncertain match.
+.TP
+.BR \-e ", " \-\-explain
+After the command, explain it part by part: each option with its value,
+jq programs stage by stage, ffmpeg filters, ImageMagick geometries, find
+tests and git revisions. With
+.BR \-x ,
+the explanation goes to stderr with the command.
+.TP
+.BR \-v ", " \-\-verbose
+On stderr: the extracted slots and words, every template's score, the
+dry run of a destructive command, and without a tool, every tool's score.
+.TP
+.BR \-l ", " \-\-list " [\fItool\fR]"
+List the templates (of one tool) with an example request each;
+destructive ones are marked.
+.TP
+.BI \-\-shell " shell"
+Print the shell integration for
+.B zsh
+or
+.B bash
+(see
+.BR "SHELL INTEGRATION" ).
+.TP
+.BR \-h ", " \-\-help
+Show the usage.
+.TP
+.BR \-V ", " \-\-version
+Show the version.
+.TP
+.B \-\-
+End of options: what follows is the request even if it starts with
+.BR \- .
+.SH SHELL INTEGRATION
+.RS
+.EX
+eval "$(nls \-\-shell zsh)"     # in ~/.zshrc
+eval "$(nls \-\-shell bash)"    # in ~/.bashrc (bash 4.0 or later)
+.EE
+.RE
+.PP
+Type a request on the command line and press
+.BR Ctrl+G :
+the line is replaced by the command, to edit or run with Enter. A leading
+.I nls
+on the line is ignored, so
+.I "nls git undo last commit"
+works as well. Messages from
+.B nls
+(an uncertain match, what is missing) are shown under the line in zsh and
+above it in bash; when no command can be made, the line stays as typed. In
+zsh, undo
+.RB ( Ctrl+_ )
+brings the request back.
+.SH DESTRUCTIVE COMMANDS
+Commands that delete or overwrite data, or rewrite a remote (find deletes,
+.BR "git reset \-\-hard" ,
+.BR "git restore" ,
+.BR "git clean" ,
+.BR "git branch \-D" ,
+.BR "git push \-\-delete" ,
+force pushes,
+.BR "curl \-X DELETE" )
+are marked by
+.BR \-\-list .
+With
+.BR \-x ,
+.B nls
+says what the command destroys, runs a dry run first where the tool has
+one (its output goes to stderr; if it fails, the command isn't run), and
+runs the command only on a typed
+.BR y .
+.SH ENVIRONMENT
+.TP
+.B NLS_KEY
+The key the shell integration binds, read when its script is evaluated:
+zsh
+.B bindkey
+syntax
+.RI ( "\(aq^X^N\(aq" ),
+or readline syntax for bash
+.RI ( "\(aq\eC\-x\eC\-n\(aq" ).
+The default is Ctrl+G.
+.SH EXIT STATUS
+.TP
+.B 0
+The command was printed (or, with
+.BR \-x ,
+run and succeeded).
+.TP
+.B 1
+No command: the request wasn't understood, lacked something (said on
+stderr), or was refused as unsafe or ambiguous; or a dry run failed.
+.TP
+.B 2
+Usage error: an unknown option or tool, or a request that is too long.
+.TP
+.B 130
+With
+.BR \-x :
+the confirmation was declined.
+.PP
+Otherwise, with
+.BR \-x ,
+the command's own exit status.
+.SH EXAMPLES
+.EX
+nls jq "get .name from users.json where .age > 30"
+nls grep "which python files contain TODO, ignoring case"
+nls find "files larger than 100MB modified in the last 7 days"
+nls tar "compress src/ into backup.tar.gz excluding .git"
+nls git "undo last 2 commits keep changes staged"
+nls curl "post data.json to https://api.example.com/users"
+nls magick "resize hero.png to width 800 convert to webp quality 85"
+nls "extract backup.tar.gz into restore/"
+nls \-\-explain git "squash the last 3 commits"
+nls \-x jq "pretty print data.json"
+curl \-s https://api.example.com/users | eval "$(nls jq 'list .email of each user')"
+.EE
+.PP
+Quote the whole request so the shell doesn't interpret
+.BR > ,
+.BR \(aq ,
+.B *
+or
+.BR $ .
+.SH SEE ALSO
+.BR ffmpeg (1),
+.BR jq (1),
+.BR grep (1),
+.BR find (1),
+.BR tar (1),
+.BR git (1),
+.BR curl (1),
+.BR magick (1)
+.PP
+https://github.com/gnatal/nls

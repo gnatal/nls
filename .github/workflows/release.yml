@@ -46,9 +46,11 @@ jobs:
             exit 1
           fi
 
+      # zsh and mandoc: the shell-integration, completion and man page tests
+      # (bash 4+ is already there; macOS ships zsh and mandoc, bash 3.2 only).
       - name: Install tools for the execution tests
         if: runner.os == 'Linux'
-        run: sudo apt-get update -q && sudo apt-get install -yq jq ffmpeg
+        run: sudo apt-get update -q && sudo apt-get install -yq jq ffmpeg zsh mandoc
 
       - name: Build
         run: |

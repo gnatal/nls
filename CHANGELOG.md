@@ -60,6 +60,32 @@ The release workflow uses the section matching the tag as the release notes.
   `--force` doesn't skip it for an uncertain match.
 - `-v` shows a destructive command's dry run without running anything.
 
+### User experience
+
+- The tool can be left out: `nls "convert demo.mov to gif"`. The request is
+  compiled for every tool, and the best fit is used. A tool's score is its
+  keyword score plus points for what the request names: media files,
+  images, JSON files and paths, archives, URLs, git words, search words,
+  file tests, the tool's own name. jq, ffmpeg, magick, git and curl only
+  count when the request names something of theirs. A close runner-up is
+  shown on stderr and makes `-y` ask; a request that points at no tool is
+  refused. `nls -v` shows every tool's score.
+- A one-argument request may start with the tool (`nls "git undo last
+  commit"`), except `find` and `convert`, which are read as verbs there. A
+  first word naming a tool nls doesn't support (`rsync`, `openssl`, …) is
+  refused.
+- `-e` / `--explain` breaks the command down part by part: each option
+  with its value, bundled letters (`-czvf`), jq programs stage by stage,
+  ffmpeg filter chains, ImageMagick geometries, find sizes, ages and
+  `-exec`, git revisions, pipes and `&&`. With `-x`, it goes to stderr.
+- `nls --shell zsh` / `nls --shell bash` (bash 4.0 or later) print a key
+  binding: type a request on the command line, press Ctrl+G, and the line
+  becomes the command, to edit before running. `NLS_KEY` picks another key.
+- bash and zsh completions (`completions/`) and a man page (`man/nls.1`).
+  `make install`, `install.sh` and the Homebrew formula install them.
+- A request quoted as a whole (`'cut in.mp4 from 1:00 to 2:00'`) is
+  unquoted, so its words are read as words.
+
 ## [0.1.0] - 2026-11-24
 
 First release.

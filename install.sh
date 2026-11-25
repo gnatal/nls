@@ -62,6 +62,18 @@ tar -xzf "$tmp/$name.tar.gz" -C "$tmp"
 mkdir -p "$BINDIR"
 install -m 755 "$tmp/$name/nls" "$BINDIR/$BIN_NAME"
 echo "installed $BINDIR/$BIN_NAME ($("$BINDIR/$BIN_NAME" --version))"
+# The man page and completions (releases from 0.2.0 on carry them).
+if [ -f "$tmp/$name/man/nls.1" ]; then
+    mkdir -p "$PREFIX/share/man/man1" "$PREFIX/share/bash-completion/completions" \
+             "$PREFIX/share/zsh/site-functions"
+    install -m 644 "$tmp/$name/man/nls.1" "$PREFIX/share/man/man1/$BIN_NAME.1"
+    install -m 644 "$tmp/$name/completions/nls.bash" "$PREFIX/share/bash-completion/completions/$BIN_NAME"
+    install -m 644 "$tmp/$name/completions/_nls" "$PREFIX/share/zsh/site-functions/_$BIN_NAME"
+    echo "installed the man page and bash/zsh completions under $PREFIX/share"
+fi
+echo ""
+echo "shell integration (Ctrl+G turns the typed line into a command), in ~/.zshrc or ~/.bashrc:"
+echo "  eval \"\$($BIN_NAME --shell zsh)\"    # or: --shell bash"
 
 case ":$PATH:" in
     *":$BINDIR:"*) ;;

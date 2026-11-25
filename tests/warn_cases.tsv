@@ -43,3 +43,16 @@ grep	search for TODO in no_such_folder_here	no file or folder named 'no_such_fol
 # Without -v, printing a destructive command adds nothing to stderr.
 find	delete .log files	-
 git	delete untracked files	-
+# Without a tool: quiet when one tool clearly fits...
+--	cut input.mp4 from 00:10 to 00:25	-
+--	find 'x' in src/	-
+--	git undo last commit	-
+# ...the runner-up is shown when two tools fit about as well...
+--	find 'a;rm -rf ~'	guessed the tool: grep; this could also be for:
+--	find 'a;rm -rf ~'	  find     find . -type f -name 'a;rm -rf ~'
+# ...the best tool says what is missing...
+--	cut video.mp4	(guessed the tool: ffmpeg; for another, name it
+# ...and nothing is guessed when nothing fits.
+--	go back to main	couldn't tell which tool this is for
+--	rsync src/ to backup/	unsupported tool 'rsync'
+-v --	cut input.mp4 from 00:10 to 00:25	(+15: a media file input.mp4)

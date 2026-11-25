@@ -12,7 +12,14 @@ ffmpeg -ss 00:10 -to 00:25 -i input.mp4 -vf scale=-2:720 -c:a copy input_cut.mp4
 
 $ nls jq "get .name from users.json where .age > 30"
 jq 'map(select(.age > 30) | .name)' users.json
+
+$ nls "extract backup.tar.gz into restore/"        # the tool can be left out
+tar -xzvf backup.tar.gz -C restore/
 ```
+
+`nls --explain` breaks a command down part by part, and a key binding turns
+the request you typed on the command line into the command, ready to edit
+(see [Usage](#usage)).
 
 Supported tools: **ffmpeg**, **jq**, **grep**, **find**, **tar**, **git**, **curl** and
 **magick** (also reachable as `nls convert …`)
@@ -30,7 +37,8 @@ curl -fsSL https://raw.githubusercontent.com/gnatal/nls/main/install.sh | sh
 
 Set `NLS_VERSION=0.1.0` to pick a release, or `PREFIX=/usr/local` to install
 system-wide. You can also build from source (below): it's one `make` with no
-dependencies.
+dependencies. Both install the man page (`man nls`) and bash/zsh
+completions too; see [Completions and man page](#completions-and-man-page).
 
 ## Build
 
@@ -40,6 +48,12 @@ make test     # all tests (each execution suite skips if its tool is missing):
               #  - command-string goldens        tests/cases.tsv
               #  - -x: answers at the prompt, dry runs
               #    and --force, in a temp git repo      tests/x_cases.tsv
+              #  - tool inference                       tests/infer_cases.tsv
+              #  - --explain: every golden command and
+              #    template example fully explained     tests/explain_cases.tsv
+              #  - shell integration, typed into zsh / bash
+              #    in a pseudo-terminal                 tests/run_shell_tests.sh
+              #  - completions and man page             tests/run_completion_tests.sh
               #  - jq: run on tests/fixtures/*.json     tests/jq_exec_cases.tsv
               #  - grep: run on tests/fixtures/grep/    tests/grep_exec_cases.tsv
               #  - find: run on a generated temp tree   tests/find_exec_cases.tsv
@@ -50,7 +64,8 @@ make test     # all tests (each execution suite skips if its tool is missing):
               #    verified with magick identify  tests/magick_exec_cases.tsv
 make test-ffmpeg  # only the ffmpeg execution tests (~10 s)
 make test-magick  # only the magick execution tests
-make install  # installs to ~/.local/bin/nls (no sudo needed)
+make install  # installs to ~/.local/bin/nls (no sudo needed), plus the man
+              # page and completions under ~/.local/share
 ```
 
 The install step prints a one-line fix if `~/.local/bin` isn't on your `PATH`. Options:
@@ -76,15 +91,18 @@ transparency, colour space, EXIF and individual pixel colours.
 ## Usage
 
 ```
-nls [options] <tool> "<what you want>"
+nls [options] [tool] "<what you want>"
 
   -x, --exec        run the command (shows it, asks for confirmation)
   -y, --yes         with -x: skip confirmation (not for uncertain matches
                     or destructive commands)
       --force       with -x -y: skip it for destructive commands too
+  -e, --explain     explain the command part by part
   -v, --verbose     show extracted slots, tokens and template scores,
                     and a destructive command's dry run
   -l, --list [tool] list all templates with example prompts
+      --shell <zsh|bash>
+                    print the key binding (see Shell integration)
 ```
 
 By default `nls` only **prints** the command. To run it, use `-x`, or
@@ -95,6 +113,149 @@ curl -s https://api.example.com/users | eval "$(nls jq 'list .email of each user
 ```
 
 Quote the whole prompt so your shell doesn't interpret `>`, `'` or `*`.
+`man nls` has the full reference.
+
+### Without a tool
+
+The tool can be left out. nls then compiles the request for every tool and
+uses the one that fits best:
+
+```console
+$ nls "convert demo.mov to gif"
+ffmpeg -i demo.mov -vf 'fps=10,scale=480:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse' -loop 0 demo.gif
+$ nls "which files mention deprecated in src/"
+grep -rlE -e deprecated src/
+$ nls "files bigger than 500MB in ~/Downloads"
+find ~/Downloads -type f -size +500M
+```
+
+A tool's score is its best template's keyword score plus points for what
+the request names: a media file, an image, a JSON file or path, an archive
+(`.tar.gz`), a URL, git words (`commit`, `branch`, `stash`, a tag such as
+`v1.0`), search words (`containing`, `mentioning`), file tests (`named`,
+`larger`, `modified`) or the tool's own name (`use jq to …`). jq, ffmpeg,
+magick, git and curl only count when the request names something of
+theirs: their keywords are too generic otherwise ("merge feature-x" is not
+jq's slurp). `nls -v` shows every tool's score.
+
+- If another tool fits about as well and gives a different command, nls
+  prints its pick and shows the runner-up's command on stderr. `-y` then no
+  longer skips the confirmation.
+- If nothing points at a tool ("go back to main"), nls refuses rather than
+  guess. Name the tool then: `nls git "go back to main"`.
+- If the best tool knows what you mean but is missing something
+  ("cut video.mp4"), it says what (here: the timestamps).
+- A first word naming a tool nls doesn't support (`rsync`, `openssl`,
+  `docker`, …) is refused, not read as part of a request.
+- The tool can also be the first word of a single-argument request
+  (`nls "git undo last commit"`, as the shell integration sends it), except
+  `find` and `convert`, which are read as verbs there:
+  `nls "find TODO in src"` is a grep.
+
+When this was written, 447 of the 452 golden prompts in `tests/cases.tsv`
+gave the same command without their tool. Four are refused as unclear ("what changed
+yesterday"), and one is reported as a close call between grep and find.
+The tests require that a command printed without a warning is always the
+golden one.
+
+### Explain a command
+
+`-e` / `--explain` prints the command, then what each part does:
+
+```console
+$ nls --explain find "5 biggest files ignoring .git"
+find . -path '*/.git' -prune -o -type f -exec du -h {} + | sort -rh | head -n 5
+
+  find                  walk folders and select files by name, type, size or
+                        age
+  .                     start searching in the current folder
+  -path '*/.git'        whose path matches */.git
+  -prune                don't go inside it
+  -o                    or (what follows applies to everything else)
+  -type f               only regular files
+  -exec                 run this on the files found, as many at a time as fit:
+    du                    show how much disk space each file uses
+    -h                    sizes in K, M, G
+    {}                    the path(s) found
+    +                     end of the command (files in batches)
+
+  |                     send the output to the next command:
+  sort                  sort lines
+  -rh                   short for -r -h:
+    -r                    largest first
+    -h                    compare sizes like 2K < 1M
+
+  |                     send the output to the next command:
+  head                  keep the first lines
+  -n 5                  keep the first 5 line(s)
+```
+
+Values with a structure of their own are decoded too. A jq program is
+explained stage by stage, with `--arg` values filled in ("for each element:
+keep it only if .status == "active", then take .name"). ffmpeg filter
+chains (`scale=-2:720` → "resize to 720 px high"), ImageMagick geometries
+(`'1920x1080>'` → "to fit within 1920x1080 (keeps the aspect ratio), only
+if it is larger"), find sizes
+and ages, tar's bundled letters (`-czvf`) and git revisions (`HEAD~3`,
+`main..HEAD`, `'HEAD@{1}'`) are decoded as well. With `-x`, the explanation
+goes to stderr with the command, before the question. The tests check that
+every command nls can generate is explained in full.
+
+### Shell integration
+
+```sh
+eval "$(nls --shell zsh)"     # in ~/.zshrc
+eval "$(nls --shell bash)"    # in ~/.bashrc (bash 4.0 or later)
+```
+
+Type a request on the command line and press **Ctrl+G**. The line is
+replaced by the command, so you can read and edit it before pressing Enter:
+
+```console
+$ cut input.mp4 from 00:10 to 00:25          ← typed, then Ctrl+G
+$ ffmpeg -ss 00:10 -to 00:25 -i input.mp4 -c copy input_cut.mp4
+```
+
+- A leading `nls` on the line is ignored, so `nls git undo last commit`
+  works too, and so does a request quoted as a whole.
+- nls's messages (an uncertain match, what is missing) are shown under the
+  line in zsh and above it in bash. When no command can be made, the line
+  stays as typed.
+- In zsh, undo (Ctrl+_) brings the request back.
+- To use another key, set `NLS_KEY` before the `eval`: `NLS_KEY='^X^N'`
+  (zsh `bindkey` syntax) or `NLS_KEY='\C-x\C-n'` (readline syntax, bash).
+
+The widget only edits the line. Nothing runs until you press Enter.
+
+### Completions and man page
+
+`make install` and `install.sh` also install:
+
+| File | Installed as |
+|---|---|
+| `man/nls.1` | `$PREFIX/share/man/man1/nls.1` |
+| `completions/nls.bash` | `$PREFIX/share/bash-completion/completions/nls` |
+| `completions/_nls` | `$PREFIX/share/zsh/site-functions/_nls` |
+
+The completions offer the options, the tools (first argument, and after
+`--list`), `zsh`/`bash` after `--shell`, and file names inside the request.
+bash-completion finds the file on its own with the default prefix
+(`~/.local`). zsh needs the folder on `$fpath` before `compinit`:
+
+```sh
+fpath=(~/.local/share/zsh/site-functions $fpath)   # in ~/.zshrc, before compinit
+```
+
+The completions are registered for the name `nls`. With
+`make install BIN_NAME=other`, they are installed under the new name but
+still complete `nls`.
+
+Tool inference, Tab completion and the Ctrl+G widget in action:
+
+![nls without a tool, Tab completion and the Ctrl+G key binding](docs/nls-infer-completion.gif)
+
+The GIF is recorded with [VHS](https://github.com/charmbracelet/vhs) from
+`marketing/infer-completion.tape`.
 
 ### Destructive commands
 
@@ -362,10 +523,15 @@ Each tool lives in its own files behind two small interfaces:
 | `src/expander_<tool>.c` | Optional. A `ToolExpander` (`check`, `prologue`, `placeholder`, any of which may be `NULL`) for tool-specific placeholders and refusals. Register it in `EXPANDERS[]` in `src/expander.c`. ffmpeg, jq and grep get by with the generic template grammar alone. |
 | `src/templates.c` | The tool's `NL_TEMPLATES[]` entries. |
 | `src/nl.h`, `src/lexer.c` | A `TOOL_<NAME>` id and its name in `nl_tool_from_name()` / `nl_tool_name()`. |
+| `src/explain.c` | The command in `COMMANDS[]` and its options in `OPTS[]` (subcommands as `"tool sub"`), and what its positional words are in `positional()`. |
+| `src/main.c` | Inference: the clues that point at the tool (file extensions, words) in `evidence_word()`, and whether it may only be picked with one (`NEEDS_EVIDENCE[]`). Add its name to `NL_TOOL_LIST`, and take it out of `UNSUPPORTED[]` if it is listed there (`rsync`, `openssl`, …). |
+| `completions/`, `man/nls.1` | The tool's name (`tests/run_completion_tests.sh` checks it is there). |
 
-Then add golden cases to `tests/cases.tsv` and, ideally, a `tests/run_<tool>_exec.sh`
-suite that runs the generated commands. The Makefile builds every `src/*.c`, so
-new files need no build changes.
+Then add golden cases to `tests/cases.tsv`, a few requests without the tool to
+`tests/infer_cases.tsv` and, ideally, a `tests/run_<tool>_exec.sh` suite that runs
+the generated commands. `make test` checks that every generated command is fully
+explained by `--explain`. The Makefile builds every `src/*.c`, so new files need
+no build changes.
 
 ## License
 
