@@ -73,12 +73,16 @@ make fuzz-check   # fuzz the lexer and expanders: replay the corpus, then
 make fuzz         # coverage-guided libFuzzer run for FUZZ_TIME=60 seconds
                   # (needs clang with libFuzzer: Linux, or Homebrew llvm via
                   # FUZZ_CC=$(brew --prefix llvm)/bin/clang)
+make wasm-docker  # rebuild the landing page's playground (docs/wasm/) with
+                  # Emscripten in Docker (`make wasm` if emcc is installed)
+make test-wasm    # that build must print what ./nls prints (needs node)
 make install  # installs to ~/.local/bin/nls (no sudo needed), plus the man
               # page and completions under ~/.local/share
 ```
 
 CI (`.github/workflows/ci.yml`) runs `make test` on Linux and macOS for every
-push and pull request, plus `make test-sanitize` and a two-minute `make fuzz`.
+push and pull request, plus `make test-sanitize`, a two-minute `make fuzz` and
+`make test-wasm`.
 
 The fuzzer (`tests/fuzz/fuzz_nls.c`) feeds each input through the lexer,
 matcher, every expandable template, its dry run and `--explain`. Besides
@@ -552,6 +556,10 @@ Add an entry to `NL_TEMPLATES[]` in `src/templates.c`, then add a line to
 `tests/paraphrase_cases.tsv`, then run `make test`. The paraphrase tests fail
 if a change pulls any template's wordings to another template. Use `nls -v` to
 see why a prompt matched (or didn't match) a template.
+
+The playground on the landing page runs a WebAssembly build of nls that is
+committed in `docs/wasm/`. After changing what nls prints, run
+`make wasm-docker && make test-wasm`, or CI's `wasm` job fails.
 
 ## Adding a tool
 

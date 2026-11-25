@@ -3,6 +3,8 @@
 #   test      make test on Linux and macOS, warnings as errors
 #   sanitize  make test against an ASan + UBSan build, then a short libFuzzer
 #             run over the lexer and expanders (see tests/fuzz/fuzz_nls.c)
+#   wasm      the landing page's playground (docs/wasm/, committed) still
+#             prints what nls prints; then the same for a fresh Emscripten build
 name: CI
 
 on:
@@ -77,3 +79,20 @@ jobs:
             build/timeout-*
             build/oom-*
           if-no-files-found: ignore
+
+  wasm:
+    name: browser playground (WebAssembly)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: make
+
+      # GitHub Pages serves docs/ as committed: if this fails, the page
+      # shows output this commit's nls no longer gives. Fix: make wasm-docker
+      - name: The committed docs/wasm build matches ./nls
+        run: make test-wasm
+
+      - name: A fresh build with the pinned Emscripten matches too
+        run: make wasm-docker && make test-wasm

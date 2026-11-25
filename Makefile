@@ -115,6 +115,46 @@ fuzz-check: build/fuzz-check build/fuzz-corpus
 	ASAN_OPTIONS=detect_leaks=0:abort_on_error=1 UBSAN_OPTIONS=abort_on_error=1 \
 	  build/fuzz-check -runs=$(FUZZ_RUNS) build/fuzz-corpus
 
+# The browser playground on the landing page: the same sources, main.c
+# included, compiled to WebAssembly with Emscripten into docs/wasm/ (which is
+# committed: GitHub Pages serves docs/ as it is). The page calls main() once
+# per keystroke, as `nls -- "<request>"`.
+#   make wasm          needs emcc on PATH
+#   make wasm-docker   the same build in the pinned emscripten/emsdk image
+#   make test-wasm     the committed docs/wasm build must print what ./nls
+#                      prints (stdout, stderr, exit code) for every prompt in
+#                      the test suites; needs node
+# docs/wasm/nls-run.js wraps each main() call; see there why.
+# The stack: Emscripten's default is 64 KB (a native thread gets 8 MB), and
+# nls's deepest call chain is about 60 KB (emcc -fstack-usage), so it gets
+# 1 MB. By default the stack sits right above the static data, where an
+# overflow silently corrupts globals; --stack-first puts it at address 0
+# instead, where an overflow traps.
+EMCC        ?= emcc
+EMSDK_IMAGE ?= emscripten/emsdk:7.0.1
+WASM_DIR    := docs/wasm
+WASM_FLAGS  := -std=c11 -Oz -Wall -Wextra -pedantic -Werror \
+               -sMODULARIZE=1 -sEXPORT_NAME=createNls -sENVIRONMENT=web,node \
+               -sINVOKE_RUN=0 -sEXIT_RUNTIME=0 -sSTACK_SIZE=1MB -Wl,--stack-first \
+               -sEXPORTED_FUNCTIONS=_main,_fflush -sEXPORTED_RUNTIME_METHODS=callMain,FS,stackSave,stackRestore
+
+wasm: $(SRC) $(HDR)
+	@mkdir -p $(WASM_DIR)
+	$(EMCC) $(WASM_FLAGS) $(SRC) -o $(WASM_DIR)/nls.js
+	@ls -l $(WASM_DIR)/nls.js $(WASM_DIR)/nls.wasm
+
+# emcc runs directly, not through make, so the container's git doesn't
+# rewrite the host's build stamp; as the host's user, so the files aren't
+# root's. The build is reproducible: same image and sources, same bytes.
+wasm-docker:
+	@mkdir -p $(WASM_DIR)
+	docker run --rm -u "$$(id -u):$$(id -g)" -v "$(CURDIR)":/src -w /src $(EMSDK_IMAGE) \
+	  emcc $(WASM_FLAGS) $(SRC) -o $(WASM_DIR)/nls.js
+	@ls -l $(WASM_DIR)/nls.js $(WASM_DIR)/nls.wasm
+
+test-wasm: nls
+	node tests/wasm_parity.cjs ./nls $(WASM_DIR)/nls.js
+
 test-ffmpeg: nls
 	sh tests/run_ffmpeg_exec.sh ./nls
 
@@ -179,4 +219,4 @@ clean:
 	rm -f nls .build-version
 	rm -rf dist build
 
-.PHONY: test test-paraphrase test-sanitize fuzz fuzz-check test-ffmpeg test-magick install uninstall version build-version release dist clean
+.PHONY: test test-paraphrase test-sanitize fuzz fuzz-check wasm wasm-docker test-wasm test-ffmpeg test-magick install uninstall version build-version release dist clean

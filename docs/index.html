@@ -136,6 +136,50 @@
   .demo { margin: 56px auto 0; max-width: 880px; }
   .demo img { display: block; width: 100%; height: auto; }
 
+  /* playground: nls compiled to WebAssembly, run on every keystroke */
+  .play { margin: 0 auto; max-width: 880px; }
+  .play-in {
+    display: flex; align-items: center; gap: 12px;
+    padding: 18px 24px 4px; font: 16px/1.6 var(--mono);
+  }
+  .play-in label { white-space: nowrap; }
+  .play-in input {
+    flex: 1; min-width: 0; padding: 0; border: 0; outline: 0; background: transparent;
+    color: var(--text); font: inherit; caret-color: var(--accent);
+  }
+  .play-in input::placeholder { color: var(--dim); }
+  .play-in input:disabled { opacity: .6; }
+  .play-out {
+    margin: 0; padding: 6px 24px 18px; min-height: 7.5em; overflow-x: auto;
+    font: 14.5px/1.75 var(--mono);
+  }
+  .play-out div { white-space: pre; min-height: 1.75em; }
+  .play-out .cmd { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .play-out .x { color: var(--muted); }
+  .play-foot {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 9px 16px 9px 24px; border-top: 1px solid #1d2128; background: #111419;
+    font: 12.5px var(--mono); color: #9aa3ae;
+  }
+  .badge { display: inline-flex; align-items: center; gap: 8px; }
+  .badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #2c313a; }
+  .badge.live::before { background: #7ee2a8; }
+  .play-foot .copy { float: none; }
+  .play-foot .copy:disabled { opacity: .4; cursor: default; }
+  .play .term-bar b { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .term-bar .opt { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font: 12px var(--mono); color: #9aa3ae; cursor: pointer; white-space: nowrap; }
+  .term-bar .opt input { accent-color: #7ee2a8; margin: 0; }
+  .pills { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 16px auto 0; max-width: 880px; }
+  .pill {
+    font: 13px var(--mono); cursor: pointer;
+    padding: 6px 12px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--bg-2); color: var(--muted);
+  }
+  .pill:hover { color: var(--text); border-color: var(--accent); }
+  .pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .play-note { color: var(--dim); font-size: 14px; max-width: 46em; margin: 14px auto 34px; text-wrap: pretty; }
+  .play-note code { font-size: .92em; }
+
   /* sections */
   section { padding: 84px 0; }
   section + section { border-top: 1px solid var(--line); }
@@ -247,6 +291,40 @@
       You don't need to look up flags, and nothing is sent to a model.
       Every command comes from a tested template.
     </p>
+
+    <div class="term play" id="play">
+      <div class="term-bar"><i></i><i></i><i></i><b>try it: nls, running in your browser</b>
+        <label class="opt"><input type="checkbox" id="play-explain"> --explain</label>
+      </div>
+      <div class="play-in">
+        <label for="play-input" class="p">$ nls</label>
+        <input id="play-input" type="text" maxlength="500" spellcheck="false" autocomplete="off"
+               autocapitalize="off" autocorrect="off" enterkeyhint="done"
+               placeholder="say what you want, e.g. undo last commit" disabled>
+      </div>
+      <div class="play-out" id="play-out"><div class="c">loading nls.wasm…</div></div>
+      <div class="play-foot">
+        <span class="badge" id="play-badge" title="">WebAssembly build of the same C code</span>
+        <button class="copy" id="play-copy" disabled>copy</button>
+      </div>
+    </div>
+    <div class="pills" id="play-pills">
+      <button class="pill" data-q="undo last 2 commits">undo last 2 commits</button>
+      <button class="pill" data-q="make a gif from demo.mp4 between 2 and 5 seconds">make a gif from demo.mp4 between 2 and 5 seconds</button>
+      <button class="pill" data-q="delete .DS_Store files">delete .DS_Store files</button>
+      <button class="pill" data-q="names from users.json where age > 30">names from users.json where age &gt; 30</button>
+      <button class="pill" data-q="which python files contain TODO">which python files contain TODO</button>
+      <button class="pill" data-q="extract release-1.0.tgz into dist/ without the top folder">extract release-1.0.tgz into dist/ without the top folder</button>
+      <button class="pill" data-q="post data.json to https://api.example.com/users">post data.json to https://api.example.com/users</button>
+      <button class="pill" data-q="resize hero.png to width 800 as webp">resize hero.png to width 800 as webp</button>
+    </div>
+    <p class="play-note">
+      This is the real <code>nls</code>, compiled to WebAssembly. It prints commands and never runs them.
+      It works in a pretend folder that holds <code>users.json</code>, <code>data.json</code>, <code>package.json</code>,
+      <code>demo.mp4</code>, <code>hero.png</code>, <code>release-1.0.tgz</code> and <code>src/</code>.
+      jq reads the fields of the JSON files, as it does on your machine.
+    </p>
+
     <div class="cta">
       <a class="btn primary" href="#install">Install</a>
       <a class="btn" href="https://github.com/gnatal/nls">View on GitHub →</a>
@@ -555,7 +633,122 @@
   </div>
 </footer>
 
+<script src="wasm/nls.js"></script>
+<script src="wasm/nls-run.js"></script>
 <script>
+  /* The playground: nls's own main() (docs/wasm, built with `make wasm`),
+   * called as `nls -- "<request>"` on every keystroke, like the Ctrl+G
+   * widget. Everything it prints goes in as text, never as HTML. */
+  (() => {
+    const $ = id => document.getElementById(id);
+    const input = $('play-input'), out = $('play-out'), badge = $('play-badge');
+    const copyBtn = $('play-copy'), explain = $('play-explain');
+    const DEMO = {
+      'users.json': JSON.stringify([
+        { name: 'Ada', email: 'ada@example.com', age: 36, status: 'active' },
+        { name: 'Linus', email: null, age: 29, status: 'away' },
+        { name: 'Grace', email: 'grace@example.com', age: 45, status: 'active' }
+      ], null, 2),
+      'data.json': '{ "name": "bob" }\n',
+      'package.json': JSON.stringify({ name: 'app', version: '1.4.2', scripts: { build: 'tsc' },
+                                       dependencies: { express: '^4.19.0' } }, null, 2),
+      'README.md': '# app\n', 'demo.mp4': '', 'talk.mp4': '', 'hero.png': '', 'release-1.0.tgz': '',
+      'src/app.py': '# TODO: retry on timeout\n', 'src/server.py': '', 'logs/app.log': ''
+    };
+    let nls = null, cmd = '';
+
+    function show(lines) {
+      out.replaceChildren(...lines.map(([text, cls]) => {
+        const d = document.createElement('div');
+        d.className = cls;
+        d.textContent = text;
+        return d;
+      }));
+    }
+    function setBadge(text, title, live) {
+      badge.textContent = text;
+      badge.title = title || '';
+      badge.classList.toggle('live', !!live);
+    }
+    const split = s => s.replace(/\n$/, '').split('\n');
+
+    function update() {
+      const q = input.value.trim().replace(/^nls\s+/, '');
+      cmd = '';
+      copyBtn.disabled = true;
+      copyBtn.textContent = 'copy';
+      if (!q) {
+        show([['Type what you want, or pick an example below.', 'c']]);
+        setBadge('0 network requests · 0 tokens', '', true);
+        return;
+      }
+      const args = explain.checked ? ['--explain', '--', q] : ['--', q];
+      let r;
+      try {
+        r = nls.run(args);
+        // Time it: repeat until the clock has something to measure.
+        let n = 0, dt;
+        const t0 = performance.now();
+        do { nls.run(args); n++; dt = performance.now() - t0; } while (dt < 4 && n < 500);
+        const us = dt * 1000 / n;
+        const t = us < 1000 ? `${Math.max(1, Math.round(us))} µs` : `${(us / 1000).toFixed(1)} ms`;
+        setBadge(`${r.rc === 0 ? 'compiled' : 'answered'} in ${t} · 0 network requests · 0 tokens`,
+                 `Mean of ${n} runs of nls's main() in this tab, in WebAssembly (after a warm-up). With no tool named, that includes trying all eight.`,
+                 true);
+      } catch (e) {
+        console.error(e);
+        input.disabled = true;
+        show([['nls crashed on this input. Reload the page to try again, and please open an issue with it.', 'e']]);
+        setBadge('stopped', '', false);
+        return;
+      }
+      // As a terminal shows it: notes (stderr) first, then the command.
+      const lines = [];
+      if (r.err) for (const l of split(r.err)) lines.push([l, r.rc === 0 ? 'c' : 'e']);
+      if (r.out) {
+        const o = split(r.out);
+        cmd = o[0];
+        lines.push([o[0], 'o cmd']);
+        for (const l of o.slice(1)) lines.push([l, 'x']);
+      }
+      show(lines);
+      copyBtn.disabled = !cmd;
+    }
+
+    async function start() {
+      if (typeof WebAssembly !== 'object' || typeof createNls !== 'function') throw new Error('no WebAssembly');
+      nls = await createNlsRunner(createNls, { locateFile: f => 'wasm/' + f });
+      nls.FS.mkdirTree('/home/you/src');
+      nls.FS.mkdirTree('/home/you/logs');
+      for (const [p, text] of Object.entries(DEMO)) nls.FS.writeFile('/home/you/' + p, text);
+      nls.FS.chdir('/home/you');
+      // Warm up, so the badge shows the compiled wasm, not its first, cold runs.
+      const pills = [...document.querySelectorAll('#play-pills .pill')];
+      for (let k = 0; k < 3; k++) for (const p of pills) nls.run(['--', p.dataset.q]);
+
+      const q = new URLSearchParams(location.search).get('q');
+      input.value = q || pills[0].dataset.q;
+      input.disabled = false;
+      input.addEventListener('input', update);
+      explain.addEventListener('change', update);
+      pills.forEach(p => p.addEventListener('click', () => {
+        input.value = p.dataset.q;
+        update();
+      }));
+      copyBtn.addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(cmd); copyBtn.textContent = 'copied'; }
+        catch { copyBtn.textContent = 'select & copy'; }
+        setTimeout(() => copyBtn.textContent = 'copy', 1600);
+      });
+      update();
+    }
+    start().catch(e => {
+      console.error(e);
+      show([["The playground couldn't load in this browser. The examples below are real output.", 'c']]);
+      setBadge('offline', '', false);
+    });
+  })();
+
   const notes = {
     ffmpeg: "It picks <code>-c copy</code> when it can, so trimming a clip doesn't re-encode it.",
     jq: "It reads the file's field names, so plain words like “emails” map to <code>.email</code>.",
@@ -583,7 +776,7 @@
       if (d) { const n = tabs[(i + d + tabs.length) % tabs.length]; select(n); n.focus(); }
     });
   });
-  document.querySelectorAll('.copy').forEach(b => b.addEventListener('click', async () => {
+  document.querySelectorAll('.copy[data-copy]').forEach(b => b.addEventListener('click', async () => {
     try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = 'copied'; }
     catch { b.textContent = 'select & copy'; }
     setTimeout(() => b.textContent = 'copy', 1600);

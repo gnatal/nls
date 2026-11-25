@@ -145,6 +145,10 @@ First release.
   `make install`, `install.sh` and the Homebrew formula install them.
 - `nls --version` prints the commit it was built from between releases, and
   `make install` warns when another `nls` comes first on `PATH`.
+- The landing page (`docs/`) has a live playground: nls compiled to
+  WebAssembly (`make wasm`, about 100 KB gzipped) runs in the browser on
+  every keystroke, with example prompts, `--explain` and the time each
+  compile takes. Nothing is sent anywhere.
 
 ### Testing
 
@@ -158,3 +162,7 @@ First release.
   `--explain` run under ASan + UBSan, with an oracle that fails on an
   unquoted shell character the template didn't produce. Failing inputs are
   kept in `tests/fuzz/regressions/`.
+- `make test-wasm`: the playground's WebAssembly build must print exactly
+  what the native binary prints (stdout, stderr, exit code) for every prompt
+  in the test suites, called as `nls tool "..."`, `nls -- "..."`,
+  `--explain` and `-v`. CI runs it on the committed build and on a fresh one.
