@@ -188,7 +188,7 @@
   td.yes { color: var(--text); font-weight: 600; }
 
   /* safety */
-  .checks { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .checks { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); }
   .checks li {
     background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
     padding: 18px 20px 18px 50px; position: relative; color: var(--muted); font-size: 15.5px;
@@ -198,6 +198,9 @@
     font: 700 16px var(--mono); color: var(--accent);
   }
   .checks strong { color: var(--text); font-weight: 600; }
+  .checks code { white-space: nowrap; }        /* keep flags whole: no "-" / "d" or "--" / "force" */
+  .checks code.wrap { white-space: normal; }   /* except a chip too long for a phone-width card */
+  .safety-demo { margin-bottom: 28px; }
 
   /* install */
   .install > *, .grid > *, .pipe > * { min-width: 0; }
@@ -320,7 +323,7 @@
 <span class="o">find . -mindepth 1 -type d -name node_modules -prune -exec rm -rf {} +</span>
 
 <span class="p">$</span> nls find <span class="s">"delete files"</span>
-<span class="e">nls: refusing to delete everything; say which files (e.g. '*.log', named 'core', older than 30 days)</span></pre>
+<span class="e">nls: refusing to delete everything; say which files (e.g. '*.log', named 'core', older than 30 days) (find_delete)</span></pre>
       </div>
 
       <div class="term panel" role="tabpanel" id="t-tar" aria-labelledby="b-tar" hidden>
@@ -410,7 +413,7 @@
         <div class="card"><div class="stat">~2<small> ms</small></div><h3>Instant</h3><p>That includes starting the process. You won't wait on a spinner.</p></div>
         <div class="card"><div class="stat">0<small> requests</small></div><h3>Private</h3><p>Your file names and data never leave your machine. It needs no API key and works on a plane.</p></div>
         <div class="card"><div class="stat">1:1</div><h3>Deterministic</h3><p>The same input always gives the same output, so you can script it and trust it.</p></div>
-        <div class="card"><div class="stat">789<small> tests</small></div><h3>Tested for real</h3><p>The tests run the generated commands against real ffmpeg, jq, grep, find, tar, git, curl and ImageMagick, and check the output files: durations with ffprobe, image sizes, transparency and pixel colours with magick.</p></div>
+        <div class="card"><div class="stat">909<small> tests</small></div><h3>Tested for real</h3><p>The tests run the generated commands against real ffmpeg, jq, grep, find, tar, git, curl and ImageMagick, and check the output files: durations with ffprobe, image sizes, transparency and pixel colours with magick.</p></div>
       </div>
 
       <div class="table-wrap" style="margin-top:36px">
@@ -422,7 +425,7 @@
             <tr><td>Latency</td><td class="yes">~2 ms</td><td>Typically seconds</td></tr>
             <tr><td>Your files and data</td><td class="yes">Stay on your machine</td><td>Sent to a provider, unless self-hosted</td></tr>
             <tr><td>Invented flags</td><td class="yes">Not possible: every command is a tested template</td><td>Possible</td></tr>
-            <tr><td>Coverage</td><td>ffmpeg, jq, grep, find, tar, git, curl, ImageMagick (206 templates)</td><td class="yes">Anything</td></tr>
+            <tr><td>Coverage</td><td>ffmpeg, jq, grep, find, tar, git, curl, ImageMagick (208 templates)</td><td class="yes">Anything</td></tr>
           </tbody>
         </table>
       </div>
@@ -433,7 +436,7 @@
     <div class="wrap">
       <p class="kicker">How it works</p>
       <h2>A small compiler from English to shell</h2>
-      <p class="sub">There are no models or weights, just about 6,700 lines of C11 using the standard library and no other dependencies.</p>
+      <p class="sub">There are no models or weights, just about 8,100 lines of C11 using the standard library and no other dependencies.</p>
       <div class="pipe">
         <div class="card">
           <h3>Lexer</h3>
@@ -455,15 +458,41 @@
     <div class="wrap">
       <p class="kicker">Safety</p>
       <h2>It would rather refuse than guess</h2>
-      <p class="sub">Cleanup commands are where generated shell hurts most, so <code>nls</code> is strict by default.</p>
+      <p class="sub">Cleanup commands are where generated shell hurts most, so <code>nls</code> is strict by default. Before a destructive command runs, it shows you what would go.</p>
+
+      <div class="term safety-demo">
+        <div class="term-bar"><i></i><i></i><i></i><b>nls -x</b></div>
+<pre><span class="p">$</span> nls -x find <span class="s">"delete .DS_Store files recursively"</span>
+<span class="o">→ find . -type f -name .DS_Store -delete</span>
+<span class="e">nls: destructive: deletes the matching files for good</span>
+<span class="c">nls: dry run: find . -type f -name .DS_Store -print</span>
+  ./.DS_Store
+  ./src/.DS_Store
+<span class="c">[type y to run / Enter to abort]</span> y
+
+<span class="p">$</span> nls -x -y git <span class="s">"delete untracked and ignored files"</span>
+<span class="o">→ git clean -fdx</span>
+<span class="e">nls: destructive: deletes untracked and ignored files for good (build output, but also local files such as .env)</span>
+<span class="c">nls: dry run: git clean -ndx</span>
+  Would remove .env
+  Would remove build/
+  Would remove notes.txt
+<span class="e">nls: not running a destructive command without confirmation (-y ignored; add --force to skip it)</span>
+<span class="c">[type y to run / Enter to abort]</span>
+<span class="c">nls: aborted</span></pre>
+      </div>
+
       <ul class="checks">
         <li><strong>Prints only.</strong> Nothing runs unless you pass <code>-x</code>, and <code>-x</code> asks before it runs.</li>
+        <li><strong>Dry run first.</strong> Deletes, hard resets, cleans and force pushes say what they destroy. Where the tool allows it, a dry run such as <code>find … -print</code> or <code>git clean -n</code> shows what they would touch, and if it fails, nothing runs.</li>
+        <li><strong>A typed y, not Enter.</strong> For a destructive command, Enter aborts and only <code>y</code> runs it, so a reflex can't delete anything.</li>
+        <li><strong><code>-y</code> isn't enough.</strong> <code>-y</code> skips the question for everyday commands. Destructive ones also need <code>--force</code>, and when the match was a guess, nothing skips the question.</li>
         <li><strong>No unfiltered deletes.</strong> <code>delete files</code> on its own is refused. Directory deletes use <code>-mindepth 1</code>, so the search root is never removed.</li>
         <li><strong>No silent drops.</strong> If a template can't express part of your request, such as "older than 30 days", <code>nls</code> refuses rather than run a broader delete.</li>
         <li><strong>Quoted everywhere.</strong> File names and strings are single-quoted, and JSON paths are checked against a strict character set.</li>
         <li><strong>No flag injection.</strong> grep patterns go through <code>-e</code>, so searching for <code>-v</code> can't turn into an option.</li>
         <li><strong>Safe by default in git.</strong> Ties go to the safe variant: "undo last commit" is <code>reset --soft</code>, "delete branch" is <code>-d</code>, and <code>--hard</code> only appears when you say "throw away" or "discard".</li>
-        <li><strong>Secrets stay secret in curl.</strong> URLs must pass a strict allowlist and are always quoted, and <code>token $TOKEN</code> becomes <code>-H "Authorization: Bearer $TOKEN"</code>, so the token never lands in the command or your shell history.</li>
+        <li><strong>Secrets stay secret in curl.</strong> URLs must pass a strict allowlist and are always quoted, and <code>token $TOKEN</code> becomes <code class="wrap">-H "Authorization: Bearer $TOKEN"</code>, so the token never lands in the command or your shell history.</li>
         <li><strong>Images are never overwritten.</strong> Single-image commands write a new file, folder batches either change only the format or write into another folder, and names magick would read as something else (<code>@list.txt</code>, <code>png:x</code>, a leading <code>-</code>) are refused.</li>
         <li><strong>Avoids the classic traps.</strong> It writes <code>-L</code> instead of <code>-lv</code>, ends <code>-prune -o</code> with <code>-print</code>, and never combines <code>-delete</code> with <code>-prune</code>.</li>
       </ul>
@@ -493,7 +522,6 @@
         <ul>
           <li>It only knows ffmpeg, jq, grep, find, tar, git, curl and ImageMagick so far, and git, curl and magick mean common workflows, not every flag.</li>
           <li>It supports POSIX shells only; quoting isn't Windows-safe.</li>
-          <li>jq filters can't combine conditions yet.</li>
           <li>grep can't exclude directories yet.</li>
           <li>It's tested on macOS with BSD grep, find and tar, git 2.55, curl 8.7 and ImageMagick 7.1. The flags it uses also exist in GNU; git needs 2.23+ for <code>switch</code>/<code>restore</code>, and image commands need ImageMagick 7 (<code>magick</code>).</li>
         </ul>
@@ -516,7 +544,7 @@
     ffmpeg: "It picks <code>-c copy</code> when it can, so trimming a clip doesn't re-encode it.",
     jq: "It reads the file's field names, so plain words like “emails” map to <code>.email</code>.",
     grep: "“Files not containing X” becomes <code>-L</code>, not <code>-lv</code>, which would list almost every file.",
-    find: "With no filter, a delete is refused, so “delete files” can't wipe a folder.",
+    find: "With no filter, a delete is refused, so “delete files” can't wipe a folder, and with <code>-x</code> a delete lists what it would remove before it runs.",
     tar: "The compression letter comes from the archive name, and <code>-f</code> always goes last, so <code>-cfz</code> can't create a file named <code>z</code>.",
     git: "“Undo” means <code>reset --soft</code> unless you say “throw away”, and “already pushed” switches to <code>git revert</code>.",
     curl: "<code>-d @data.json</code> sends the file, not the text “data.json”, and <code>$TOKEN</code> stays a variable, so the secret never appears in the command.",
