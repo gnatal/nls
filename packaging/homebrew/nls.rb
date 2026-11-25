@@ -5,7 +5,7 @@ class Nls < Formula
   desc "Turn plain-English requests into exact shell commands, fully offline"
   homepage "https://github.com/gnatal/nls"
   url "https://github.com/gnatal/nls/archive/refs/tags/v0.1.0.tar.gz"
-  sha256 "REPLACE_WITH_THE_SOURCE_TARBALL_SHA256"
+  sha256 "b31b4c414c6d068d6ca58022f14cd10ceed06c494fe300e7fe599e1c95900e3d"
   license "MIT"
   head "https://github.com/gnatal/nls.git", branch: "main"
 
