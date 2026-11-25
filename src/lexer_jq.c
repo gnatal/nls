@@ -21,7 +21,8 @@ static const char *const JQ_RESERVED[] = {
     "to", "at", "above", "below", "over", "under", "least", "most", "bigger",
     "smaller", "larger", "higher", "lower", "older", "younger", "exactly",
     "in", "from", "a", "an", "the", "and", "or", "of", "is", "exceeds",
-    "after", "before", "where", "whose", "with", "between", "within", NULL
+    "after", "before", "where", "whose", "with", "between", "within", "outside",
+    "beyond", NULL
 };
 
 /* jq: a JSON path followed by one of these is a *condition* path */
@@ -32,8 +33,46 @@ static const char *const JQ_COND_FOLLOWERS[] = {
     "greater", "less", "more", "fewer", "above", "below", "over", "under",
     "bigger", "smaller", "larger", "higher", "lower", "older", "younger",
     "exceeds", "after", "before", "at", "exists", "exist", "present",
-    "defined", "between", "within", NULL
+    "defined", "between", "within", "outside", "beyond", NULL
 };
+
+/* jq: a path right after one of these is the condition, whatever follows */
+static const char *const JQ_WHERE_WORDS[] = { "where", "whose", "if", "when", NULL };
+
+/* jq: words that may follow a "where" path without being a comparator */
+static const char *const JQ_NOT_OPS[] = {
+    "and", "or", "but", "then", "from", "in", "of", NULL
+};
+
+/* "from 20 to 40" at toks[i]: an inclusive range */
+static bool from_to_range(const RawTok *toks, size_t count, size_t i) {
+    return i + 3 < count && !toks[i].quoted && strcmp(toks[i].lower, "from") == 0 &&
+           is_number(toks[i + 1].text, true) && strcmp(toks[i + 2].lower, "to") == 0 &&
+           is_number(toks[i + 3].text, true);
+}
+
+/* Is the path at toks[i] the subject of "where"/"whose"/"if"? Remembers an
+ * unknown comparator right after it ("where .age around 30"), so the
+ * caller can refuse rather than guess what it means. */
+static bool where_path(ParseContext *ctx, const RawTok *toks, size_t count, size_t i,
+                       const char *path) {
+    size_t at = i;
+    const char *pw = prev_word(toks, i, &at);
+    /* "where either .a is 1 or ...", "where both .a ... and ..." */
+    if (pw && (strcmp(pw, "either") == 0 || strcmp(pw, "both") == 0))
+        pw = prev_word(toks, at, &at);
+    if (!pw || !in_list(pw, JQ_WHERE_WORDS)) return false;
+    if (i + 1 < count && !toks[i + 1].quoted) {
+        const char *nx = toks[i + 1].lower;
+        bool word = isalpha((unsigned char)nx[0]);
+        if (word && !in_list(nx, JQ_COND_FOLLOWERS) && !in_list(nx, JQ_NOT_OPS) &&
+            !looks_like_file(toks[i + 1].text, TOOL_JQ) && !ctx->jq_bad_op) {
+            ctx->jq_bad_op = arena_dup(ctx, nx);
+            ctx->jq_bad_path = arena_dup(ctx, path);
+        }
+    }
+    return true;
+}
 
 /* jq: a JSON path preceded by one of these is a *key* path (sort/max key),
  * ordered first just like condition paths */
@@ -126,7 +165,8 @@ void nl_lex_jq(ParseContext *ctx, const RawTok *toks, size_t count, const JsonIn
         /* 2. JSON paths */
         if (is_json_path(t)) {
             if (path_count < NL_MAX_SLOTS) {
-                bool cond = (next && in_list(next, JQ_COND_FOLLOWERS)) ||
+                bool cond = where_path(ctx, toks, count, i, t) ||
+                            (next && in_list(next, JQ_COND_FOLLOWERS)) ||
                             (prev && in_list(prev, JQ_KEY_LEADERS));
                 path_cond[path_count++] = cond;
                 if (cond) ctx->cond_paths++;
@@ -151,13 +191,22 @@ void nl_lex_jq(ParseContext *ctx, const RawTok *toks, size_t count, const JsonIn
             add_slot(ctx, SLOT_QUOTED_STR, t);
             continue;
         }
-        /* 6. Bare field names from the input file: "emails" -> .email */
+        /* 6. Ranges: "from 20 to 40" means between; "not between" means outside */
+        if (seen_path && from_to_range(toks, count, i)) { add_intent(ctx, "between"); continue; }
+        if ((strcmp(lw, "between") == 0 || strcmp(lw, "within") == 0) && prev &&
+            (strcmp(prev, "not") == 0 || strcmp(prev, "isnt") == 0 || strcmp(prev, "isn't") == 0) &&
+            ctx->token_count > 0 && strcmp(ctx->intent_tokens[ctx->token_count - 1], prev) == 0) {
+            ctx->intent_tokens[ctx->token_count - 1] = "outside";
+            continue;
+        }
+        /* 7. Bare field names from the input file: "emails" -> .email */
         const char *field = field_for_word(json, lw);
         if (field && !in_list(lw, STOPWORDS) && !is_keyword(TOOL_JQ, lw)) {
             char path[40];
             snprintf(path, sizeof path, ".%s", field);
             if (path_count < NL_MAX_SLOTS) {
-                bool cond = (next && in_list(next, JQ_COND_FOLLOWERS)) ||
+                bool cond = where_path(ctx, toks, count, i, path) ||
+                            (next && in_list(next, JQ_COND_FOLLOWERS)) ||
                             (prev && (in_list(prev, JQ_KEY_LEADERS) || in_list(prev, JQ_COND_LEADERS)));
                 path_cond[path_count++] = cond;
                 if (cond) ctx->cond_paths++;
@@ -175,7 +224,9 @@ void nl_lex_jq(ParseContext *ctx, const RawTok *toks, size_t count, const JsonIn
     bool range = false;
     for (uint8_t i = 0; i < ctx->token_count; i++)
         if (strcmp(ctx->intent_tokens[i], "between") == 0 ||
-            strcmp(ctx->intent_tokens[i], "within") == 0) range = true;
+            strcmp(ctx->intent_tokens[i], "within") == 0 ||
+            strcmp(ctx->intent_tokens[i], "outside") == 0 ||
+            strcmp(ctx->intent_tokens[i], "beyond") == 0) range = true;
     int a = -1, b = -1;
     for (uint8_t i = 0; range && i < ctx->slot_count && b < 0; i++) {
         if (ctx->slots[i].type != SLOT_NUM) continue;

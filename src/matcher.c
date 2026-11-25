@@ -480,6 +480,33 @@ void nl_match_only(const ParseContext *ctx, MatchResult *out, bool verbose, cons
                              rejected.tpl->id, top[0].tpl->id);
         use_rejected = false;
     }
+    /* magick: the same, but the template that takes every detail may share
+     * no keyword with the prompt ("combine a.png b.png into anim.gif at
+     * 10fps" is refused by magick_append, which has no frame rate, and
+     * magick_gif matched no word). Every magick template writes a new file,
+     * so falling through can't destroy anything. */
+    if (use_rejected && !only && ctx->tool == TOOL_MAGICK) {
+        Candidate fall = { 0 };
+        for (size_t i = 0; i < NL_TEMPLATE_COUNT; i++) {
+            const CommandTemplate *tpl = &NL_TEMPLATES[i];
+            SlotType missing[NL_MAX_REQUIRED];
+            if (tpl->tool != ctx->tool || tpl == rejected.tpl ||
+                check_slots(ctx, tpl, missing) != 0 || !nl_check(ctx, tpl))
+                continue;
+            Candidate c = { tpl, 0, slots_used(ctx, tpl), required_count(tpl), 0, 0, i };
+            if (c.used <= rejected.used) continue;
+            c.score = score_words(ctx, toks, tpl, &c.tokens);
+            if (!fall.tpl || c.used > fall.used || (c.used == fall.used && better(&c, &fall)))
+                fall = c;
+        }
+        if (fall.tpl) {
+            if (verbose) fprintf(stderr, "%s can't take every detail given: using %s\n",
+                                 rejected.tpl->id, fall.tpl->id);
+            use_rejected = false;
+            top[0] = fall;
+            ntop = 1;
+        }
+    }
     if (use_rejected) {
         out->best = rejected.tpl;
         out->best_score = rejected.score;

@@ -67,3 +67,8 @@ count users.json where .age is between 40 and 18	2
 get .name from users.json where .age between 30 and 40 and .status is active	[ "Ana", "Dan" ]
 get .name from users.json where .country is PT or .country is BR and .age > 40	[ "Carla", "Dan" ]
 get .name from users.json where .country is BR and .age > 40 or .country is US	[ "Bob", "Carla" ]
+get .name from users.json where .age outside 20 and 40	[ "Bob", "Carla" ]
+get .name from users.json where .age from 20 to 40	[ "Ana", "Dan" ]
+get .name from users.json where .age is not between 40 and 20	[ "Bob", "Carla" ]
+get .name from users.json where either .country is PT or .country is BR and .age > 40	[ "Carla" ]
+get .name from users.json where .age < 35 and either .country is US or .country is BR	[ "Ana", "Bob" ]

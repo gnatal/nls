@@ -1,7 +1,10 @@
 /*
  * lexer_grep.c — grep: search file contents: patterns, file types, modifiers.
  */
+#define _POSIX_C_SOURCE 200809L
 #include "lexer_int.h"
+
+#include <sys/stat.h>
 
 #include <ctype.h>
 #include <stdio.h>
@@ -24,7 +27,7 @@ static const char *const GREP_FILLER[] = {
 /* After one of these, a bare word is the search pattern: "search for TODO",
  * "lines containing error", "the word foo". */
 static const char *const GREP_PATTERN_TRIGGERS[] = {
-    "for", "find", "grep", "search", "containing", "contain", "contains",
+    "for", "find", "grep", "search", "count", "containing", "contain", "contains",
     "matching", "match", "matches", "mentioning", "mention", "mentions", "with",
     "word", "string", "text", "pattern", "term", "keyword", "regex", "expression",
     "without", "lacking", NULL
@@ -33,6 +36,11 @@ static const char *const GREP_PATTERN_TRIGGERS[] = {
 /* "in X", "under X": what may precede a directory name or a quoted path */
 static const char *const GREP_IN_WORDS[] = {
     "in", "inside", "under", "within", "through", "from", "the", NULL
+};
+
+/* "in src": words after which a bare word may name the place to search */
+static const char *const GREP_PLACE_WORDS[] = {
+    "in", "inside", "under", "within", "through", NULL
 };
 
 static const char *const GREP_DIR_NOUNS[] = { "folder", "directory", "dir", NULL };
@@ -117,7 +125,21 @@ static size_t classify_grep(ParseContext *ctx, ToolId tool, const RawTok *toks,
         return 1;
     }
 
-    /* 8. Bare pattern after a trigger word: "search for TODO", "or FIXME" */
+    /* 8. "in src", "under lib": a bare word after "in" that names a file or
+     * folder is the path. If nothing by that name exists, remember it: the
+     * caller says so instead of silently searching the current folder. */
+    if (prev && in_list(prev, GREP_PLACE_WORDS) && !is_number(t, false) &&
+        grep_pattern_word_ok(tool, lw) && !(next && in_list(next, GREP_FILE_NOUNS))) {
+        struct stat st;
+        if (stat(t, &st) == 0) {
+            add_slot(ctx, SLOT_FILE, t);
+            return 1;
+        }
+        if (!ctx->missing_path) ctx->missing_path = arena_dup(ctx, t);
+        return 1;
+    }
+
+    /* 9. Bare pattern after a trigger word: "search for TODO", "or FIXME" */
     size_t at = 0;
     const char *pw = prev_word(toks, i, &at);
     bool have_pattern = nl_count_slots(ctx, SLOT_QUOTED_STR) > 0;
@@ -140,10 +162,10 @@ static size_t classify_grep(ParseContext *ctx, ToolId tool, const RawTok *toks,
         }
     }
 
-    /* 9. Numbers: context lines, max matches */
+    /* 10. Numbers: context lines, max matches */
     if (is_number(t, false)) { add_slot(ctx, SLOT_NUM, t); return 1; }
 
-    /* 10. Glue words carry no intent */
+    /* 11. Glue words carry no intent */
     if (in_list(lw, GREP_FILLER) || in_list(lw, GREP_DIR_NOUNS)) return 1;
     return 0;
 }

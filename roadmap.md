@@ -6,37 +6,7 @@ wrong command that gets run.
 
 ## 1. Matching quality
 
-The first pass is done (see "Done"). Open issues found since; the first
-three give a confidently wrong command with no warning:
-
-- **jq: an unknown comparator swaps the paths.** A path counts as the
-  condition only when a known comparator word follows it. Otherwise the
-  first path in the prompt wins, so the projection becomes the condition:
-  - `get .name from users.json where .age around 30` →
-    `select(.name == 30) | .age`
-  - `... where .age from 20 to 40` → `select(.name >= 20 and .name <= 40) | .age`
-
-  A path right after "where"/"whose"/"if" should count as the condition
-  whatever follows it. When nls can't tell which path is which, it should
-  refuse instead of guessing.
-- **jq: "outside X and Y" gives the inside range.** "outside" isn't a
-  keyword, so `where .age outside 20 and 40` matches `jq_filter_between`
-  and keeps exactly the items the user wanted dropped. It needs its own
-  template (`< X or > Y`), or must at least never match "between".
-- **grep: a folder name without a slash is dropped.**
-  `grep "search for TODO in src"` gives `grep -rnE -e TODO .`. It silently
-  searches the current folder, even when `src` exists, while `in src/`
-  works. A word after "in"/"under" that names an existing directory should
-  be taken as the path. If no such directory exists, nls should say so.
-- **magick: "combine a.png b.png c.png into anim.gif at 10fps" is
-  refused.** It matches `magick_append`, which can't take a frame rate,
-  instead of the animation template ("animate …" or "make a gif from …"
-  work). The git-only fallthrough to a template that can take every
-  detail could be extended to magick, where every fallback is
-  non-destructive.
-- **Explicit grouping words** ("either ... or ...", "both ... and ...")
-  could override the default "and before or" reading of mixed jq
-  conditions.
+Both passes are done (see "Done"). Open issues go here as they turn up.
 
 ## 2. Safety around `-x`
 
@@ -107,6 +77,15 @@ makes ties more likely.
   an inclusive range, reversed bounds are put in order, and ranges combine
   with other conditions. git falls through to a template
   that can take a date (`what changed yesterday` → `git log --since -p`).
+  Second pass: a jq path after "where"/"whose"/"if" is always the
+  condition, and an unknown comparator ("around") or an unclear choice of
+  condition path is refused rather than guessed. `from X to Y` is a range,
+  and `outside X and Y` / `not between` have their own template.
+  "either … or" / "both … and" group jq conditions explicitly. grep takes a
+  bare existing folder after "in" as the path and refuses a missing one.
+  magick falls through like git (`combine … into anim.gif at 10fps`
+  animates). Several images into a `.gif` animate even without an fps,
+  and grep's "count" comes before a pattern (`count TODO in src/`).
 
 - **Per-tool modules.** `lexer.c` and `expander.c` were split into
   `lexer_<tool>.c` / `expander_<tool>.c` behind small interfaces

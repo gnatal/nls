@@ -245,6 +245,23 @@ int main(int argc, char **argv) {
     char cmd[NL_MAX_CMD_LEN];
     char err[256];
 
+    /* grep: "search for TODO in src" with no src here */
+    if (tool == TOOL_GREP && ctx.missing_path) {
+        fprintf(stderr, "nls: no file or folder named '%s' here.\n"
+                        "Give the path as it is on disk (e.g. 'src/' or './%s').\n",
+                ctx.missing_path, ctx.missing_path);
+        return 1;
+    }
+
+    /* jq: "where .age around 30": refuse rather than guess the comparison */
+    if (tool == TOOL_JQ && ctx.jq_bad_op) {
+        fprintf(stderr, "nls: don't know how to compare %s \"%s\" ...\n"
+                        "Try: is, is not, >, <, at least, at most, between X and Y, "
+                        "outside X and Y, contains, matches, exists\n",
+                ctx.jq_bad_path, ctx.jq_bad_op);
+        return 1;
+    }
+
     /* jq: "where .a is x and .b > 3" */
     if (tool == TOOL_JQ && ctx.cond_paths > 1) {
         if (!nl_jq_compound(prompt, have_json ? &json : NULL, verbose, cmd, sizeof cmd,
@@ -286,6 +303,16 @@ int main(int argc, char **argv) {
     }
 
     if (verbose) fprintf(stderr, "match: %s (score %d)\n", m.best->id, m.best_score);
+
+    /* jq: a filter with several paths and none of them clearly the
+     * condition: refuse rather than guess which one to test. */
+    if (tool == TOOL_JQ && strncmp(m.best->id, "jq_filter_", 10) == 0 &&
+        ctx.cond_paths == 0 && nl_count_slots(&ctx, SLOT_JSON_PATH) > 1) {
+        fprintf(stderr, "nls: not sure which of %s and %s is the condition.\n"
+                        "Put the condition after \"where\" (e.g. \"get .name where .age > 30\").\n",
+                nl_find_slot(&ctx, SLOT_JSON_PATH, 0), nl_find_slot(&ctx, SLOT_JSON_PATH, 1));
+        return 1;
+    }
 
     if (!nl_expand(&ctx, m.best, cmd, sizeof cmd, err, sizeof err)) {
         fprintf(stderr, "nls: %s (%s)\n", err, m.best->id);

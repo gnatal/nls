@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 typedef struct {
     bool resizing;      /* resize / scale / thumbnail ...: "to 800" is a width   */
@@ -108,6 +109,13 @@ static void magick_add_path(ParseContext *ctx, const RawTok *toks, size_t i, Mag
     bool dest = pw && (in_list(pw, MAGICK_DEST_LEADERS) ||
                        (strcmp(pw, "to") == 0 && nl_count_slots(ctx, SLOT_FILE) > 0));
     add_slot(ctx, dest ? SLOT_DEST : SLOT_FILE, toks[i].text);
+    /* "combine a.png b.png into anim.gif": several images into one .gif is an
+     * animation, not a strip (unless "side by side" etc. outweighs it) */
+    const char *dext = dest ? extension_of(toks[i].text) : NULL;
+    if (dext && strcasecmp(dext, "gif") == 0 && nl_count_slots(ctx, SLOT_FILE) >= 2) {
+        add_intent(ctx, "gif");
+        add_intent(ctx, "animated");
+    }
     /* A glob ("frames/\*.png") is several images: favours animations and strips */
     if (!dest && strpbrk(toks[i].text, "*?")) add_intent(ctx, "frames");
 }

@@ -67,6 +67,25 @@ static size_t split_pieces(const char *prompt, Span *pieces, size_t max) {
     return n;
 }
 
+/* Does clause `s` hold an unquoted "either" ('|') or "both" ('&')? */
+static char group_word(const char *prompt, Span s) {
+    size_t i = s.start;
+    while (i < s.end) {
+        while (i < s.end && isspace((unsigned char)prompt[i])) i++;
+        if (i < s.end && (prompt[i] == '\'' || prompt[i] == '"')) {
+            char q = prompt[i++];
+            while (i < s.end && prompt[i] != q) i++;
+            if (i < s.end) i++;
+            continue;
+        }
+        size_t ws = i;
+        while (i < s.end && !isspace((unsigned char)prompt[i])) i++;
+        if (i - ws == 6 && strncasecmp(prompt + ws, "either", 6) == 0) return '|';
+        if (i - ws == 4 && strncasecmp(prompt + ws, "both", 4) == 0) return '&';
+    }
+    return 0;
+}
+
 static bool lex_span(ParseContext *ctx, const char *prompt, Span s, const JsonInfo *json) {
     char buf[NL_MAX_INPUT];
     size_t n = s.end - s.start;
@@ -169,14 +188,40 @@ bool nl_jq_compound(const char *prompt, const JsonInfo *json, bool verbose,
     }
     if (nclauses < 2) return false;
 
-    /* "and" binds tighter than "or", as in jq: "a or b and c" is
-     * a or (b and c). Each run of "and"-joined clauses becomes a group. */
-    bool has_and = false, has_or = false;
-    for (size_t k = 1; k < nclauses; k++) {
-        if (clauses[k].conj == '|') has_or = true;
-        else has_and = true;
+    /* Grouping. "either a or b" / "both a and b" group explicitly: the run
+     * of clauses joined by that conjunction becomes one unit. Between units,
+     * "and" binds tighter than "or", as in jq: "a or b and c" is
+     * a or (b and c), "either a or b and c" is (a or b) and c. */
+    int opens[MAX_CLAUSES] = { 0 }, closes[MAX_CLAUSES] = { 0 };
+    bool mixed = false, explicit_group = false;
+    {
+        size_t ustart[MAX_CLAUSES], uend[MAX_CLAUSES], nunits = 0;
+        for (size_t k = 0; k < nclauses; ) {
+            char g = group_word(prompt, clauses[k]);
+            size_t j = k;
+            if (g) while (j + 1 < nclauses && clauses[j + 1].conj == g) j++;
+            if (j > k && (k > 0 || j + 1 < nclauses)) {
+                opens[k]++;
+                closes[j]++;
+                explicit_group = true;
+            }
+            ustart[nunits] = k;
+            uend[nunits++] = j;
+            k = j + 1;
+        }
+        bool has_and = false, has_or = false;
+        for (size_t u = 1; u < nunits; u++) {
+            if (clauses[ustart[u]].conj == '|') has_or = true;
+            else has_and = true;
+        }
+        mixed = has_and && has_or;
+        for (size_t u = 0; mixed && u < nunits; ) {
+            size_t v = u;
+            while (v + 1 < nunits && clauses[ustart[v + 1]].conj == '&') v++;
+            if (v > u) { opens[ustart[u]]++; closes[uend[v]]++; }
+            u = v + 1;
+        }
     }
-    bool mixed = has_and && has_or;
 
     /* 2. Match each clause against the one-condition filters. */
     const CommandTemplate *tpls[MAX_CLAUSES];
@@ -244,18 +289,14 @@ bool nl_jq_compound(const char *prompt, const JsonInfo *json, bool verbose,
             if (!strstr(t, ph)) break;
             nums++;
         }
-        /* Open a group at the start of each "and" run when mixing. */
-        bool opens = mixed && (k == 0 || clauses[k].conj == '|') &&
-                     k + 1 < nclauses && clauses[k + 1].conj == '&';
-        bool closes = mixed && k > 0 && clauses[k].conj == '&' &&
-                      (k + 1 == nclauses || clauses[k + 1].conj == '|');
         const char *lead = k == 0 ? "" : clauses[k].conj == '&' ? " and " : " or ";
-        if (!append(cond, sizeof cond, lead) ||
-            (opens && !append(cond, sizeof cond, "(")) ||
-            !append(cond, sizeof cond, "(") ||
-            !append_condition(cond, sizeof cond, t, (int)k, num_idx) ||
-            !append(cond, sizeof cond, ")") ||
-            (closes && !append(cond, sizeof cond, ")"))) {
+        bool ok = append(cond, sizeof cond, lead);
+        for (int p = 0; ok && p < opens[k]; p++) ok = append(cond, sizeof cond, "(");
+        ok = ok && append(cond, sizeof cond, "(") &&
+             append_condition(cond, sizeof cond, t, (int)k, num_idx) &&
+             append(cond, sizeof cond, ")");
+        for (int p = 0; ok && p < closes[k]; p++) ok = append(cond, sizeof cond, ")");
+        if (!ok) {
             snprintf(err, err_size, "can't combine %s with other conditions", tpls[k]->id);
             return false;
         }
@@ -263,14 +304,10 @@ bool nl_jq_compound(const char *prompt, const JsonInfo *json, bool verbose,
             push_slot(&synth, SLOT_NUM, nl_find_slot(c, SLOT_NUM, j));
         num_idx += nums;
     }
-    if (mixed) {
+    if (mixed || explicit_group) {
         /* Say how it was read: the other grouping is a plausible intent. */
-        fprintf(stderr, "nls: reading \"and\" before \"or\": ");
+        fprintf(stderr, mixed ? "nls: reading \"and\" before \"or\": " : "nls: grouping as: ");
         for (size_t k = 0; k < nclauses; k++) {
-            bool opens = (k == 0 || clauses[k].conj == '|') &&
-                         k + 1 < nclauses && clauses[k + 1].conj == '&';
-            bool closes = k > 0 && clauses[k].conj == '&' &&
-                          (k + 1 == nclauses || clauses[k + 1].conj == '|');
             size_t a = clauses[k].start, b = clauses[k].end;
             if (k == 0) {
                 /* drop the lead-in: "users.json where .a is x" -> ".a is x" */
@@ -288,8 +325,8 @@ bool nl_jq_compound(const char *prompt, const JsonInfo *json, bool verbose,
             }
             while (a < b && isspace((unsigned char)prompt[a])) a++;
             while (b > a && isspace((unsigned char)prompt[b - 1])) b--;
-            fprintf(stderr, "%s%s%.*s%s", k == 0 ? "" : clauses[k].conj == '&' ? " and " : " or ",
-                    opens ? "(" : "", (int)(b - a), prompt + a, closes ? ")" : "");
+            fprintf(stderr, "%s%.*s%.*s%.*s", k == 0 ? "" : clauses[k].conj == '&' ? " and " : " or ",
+                    opens[k], "((((((((", (int)(b - a), prompt + a, closes[k], "))))))))");
         }
         fprintf(stderr, "\n");
     }

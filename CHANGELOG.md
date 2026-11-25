@@ -22,6 +22,26 @@ The release workflow uses the section matching the tag as the release notes.
   tighter than "or", and the grouping is printed on stderr.
 - jq: ranges. `where .age between 20 and 40` now gives
   `.age >= 20 and .age <= 40` (it used to give `.age == 20`).
+- jq: a path right after "where"/"whose"/"if" is always the condition.
+  `get .name where .age around 30` used to test `.name == 30`; an unknown
+  comparison like "around" is now refused, as is a filter with several
+  paths and none of them clearly the condition.
+- jq: `where .age from 20 to 40` is an inclusive range, and
+  `outside 20 and 40` / `not between 20 and 40` give `.age < 20 or .age > 40`
+  (they used to keep the inside of the range).
+- jq: "either … or …" and "both … and …" group conditions explicitly:
+  `where either .a is 1 or .b is 2 and .c is 3` is `(a or b) and c`.
+- grep: a folder or file named without a slash is used as the path
+  (`search for TODO in src` searched `.`). If nothing by that name exists,
+  nls says so instead of searching the current folder.
+- magick: `combine a.png b.png into anim.gif at 10fps` makes an animation
+  instead of being refused: a template that can't take a detail falls
+  through to one that can, as git already did.
+- grep: `count TODO in src/` takes TODO as the pattern ("count" now comes
+  before a search pattern, like "search" or "find").
+- magick: several images combined into a `.gif` animate (10 fps by default)
+  instead of being joined side by side. "side by side" still makes a strip,
+  with the animation listed as an alternative.
 - git: `nls git "what changed yesterday"` gives `git log --since='yesterday' -p`
   instead of an error.
 

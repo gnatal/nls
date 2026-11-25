@@ -19,3 +19,6 @@ jq	users.json where .age > 30 and .status is active	-
 jq	users.json where .a is 1 or .b is 2 and .c is 3	reading "and" before "or": .a is 1 or (.b is 2 and .c is 3)
 jq	users.json where .a is 1 and .b is 2	-
 jq	users.json where .age between 20 and 40	-
+jq	users.json where either .a is 1 or .b is 2 and .c is 3	grouping as: (either .a is 1 or .b is 2) and .c is 3
+jq	get .name from users.json where .age around 30	don't know how to compare .age "around"
+grep	search for TODO in no_such_folder_here	no file or folder named 'no_such_folder_here'

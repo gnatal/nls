@@ -128,6 +128,9 @@ typedef struct {
     char find_depth[8];                      /* find: -maxdepth value, "" if none    */
     const char *stray;                       /* find/tar/git/curl/magick: a number nls couldn't place */
     bool git_last;                           /* git: "the last commit" was mentioned  */
+    const char *jq_bad_op;                   /* jq: unknown comparator after "where .x" */
+    const char *jq_bad_path;                 /* jq: the path it followed               */
+    const char *missing_path;                /* grep: "in src" but no such file/folder  */
     bool overflow;                           /* too many tokens/slots or arena full */
 } ParseContext;
 
