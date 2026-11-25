@@ -19,7 +19,8 @@ tar -xzvf backup.tar.gz -C restore/
 
 `nls --explain` breaks a command down part by part, and a key binding turns
 the request you typed on the command line into the command, ready to edit
-(see [Usage](#usage)).
+(see [Usage](#usage)). `nls --listen` lets you say the request instead,
+still offline (see [Voice](#voice)).
 
 Supported tools: **ffmpeg**, **jq**, **grep**, **find**, **tar**, **git**, **curl** and
 **magick** (also reachable as `nls convert …`)
@@ -56,6 +57,8 @@ make test     # all tests (each execution suite skips if its tool is missing):
               #  - shell integration, typed into zsh / bash
               #    in a pseudo-terminal                 tests/run_shell_tests.sh
               #  - completions and man page             tests/run_completion_tests.sh
+              #  - --listen, with a fake recorder and
+              #    transcript                           tests/run_voice_tests.sh
               #  - jq: run on tests/fixtures/*.json     tests/jq_exec_cases.tsv
               #  - grep: run on tests/fixtures/grep/    tests/grep_exec_cases.tsv
               #  - find: run on a generated temp tree   tests/find_exec_cases.tsv
@@ -123,6 +126,7 @@ nls [options] [tool] "<what you want>"
                     or destructive commands)
       --force       with -x -y: skip it for destructive commands too
   -e, --explain     explain the command part by part
+  -L, --listen      say the request instead of typing it (see Voice)
   -v, --verbose     show extracted slots, tokens and template scores,
                     and a destructive command's dry run
   -l, --list [tool] list all templates with example prompts
@@ -249,8 +253,59 @@ $ ffmpeg -ss 00:10 -to 00:25 -i input.mp4 -c copy input_cut.mp4
 - In zsh, undo (Ctrl+_) brings the request back.
 - To use another key, set `NLS_KEY` before the `eval`: `NLS_KEY='^X^N'`
   (zsh `bindkey` syntax) or `NLS_KEY='\C-x\C-n'` (readline syntax, bash).
+- To speak the request instead (see [Voice](#voice)), set `NLS_VOICE_KEY`
+  before the `eval`, e.g. `NLS_VOICE_KEY='^[v'` (zsh) or `'\ev'` (bash) for
+  Alt+V. Press it, say the request, press Enter: the line becomes the
+  command. There's no voice key unless you set one.
 
 The widget only edits the line. Nothing runs until you press Enter.
+
+### Voice
+
+`nls --listen` (`-L`) takes the request from the microphone:
+
+```console
+$ nls --listen
+nls: listening... press Enter to stop (up to 10 s)
+                                   ← say "undo the last two commits", Enter
+nls: heard: undo the last 2 commits
+git reset --soft HEAD~2
+```
+
+It is offline like the rest of nls. Nothing is linked in and nothing is
+needed unless you use it. nls runs a recorder you already have (sox's
+`rec`, `arecord`, or `ffmpeg`) and transcribes with
+[whisper.cpp](https://github.com/ggml-org/whisper.cpp):
+
+```sh
+brew install whisper-cpp            # or build whisper.cpp; provides whisper-cli
+mkdir -p ~/.local/share/nls && curl -fL -o ~/.local/share/nls/ggml-base.en.bin \
+  https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin
+```
+
+`nls --listen` says what's missing if one of them isn't there.
+
+- What was heard is always printed (`nls: heard: ...`), then the request goes
+  through the same steps as a typed one: `nls --listen git`, `--explain`,
+  `-x`, and a tool said first ("git, undo the last commit") all work.
+- The transcript is rewritten into words nls knows: spelled-out numbers
+  become digits ("two" → `2`, "one point five" → `1.5`), "users dot json" →
+  `users.json`, "get dot name" → `.name`, "restore slash" → `restore/`,
+  "underscore", "dash" and "tilde" likewise. Fillers ("um") and whisper's
+  non-speech tags (`[BLANK_AUDIO]`) are dropped.
+- With `-x`, a spoken request is **always** confirmed, even with
+  `-y --force`: a misheard word must never run unseen.
+- Any key stops the recording (Enter in a normal terminal); Ctrl+C aborts.
+
+| Variable | Meaning |
+|---|---|
+| `NLS_WHISPER_MODEL` | the model file (default: the first `ggml-*.bin` of base.en, small.en, tiny.en, … in `${XDG_DATA_HOME:-~/.local/share}/nls/`) |
+| `NLS_LISTEN_SECONDS` | longest recording, 1–300 (default 10) |
+| `NLS_RECORD` | a shell command that records 16 kHz mono WAV to `"$NLS_WAV"` for at most `$NLS_LISTEN_SECONDS`, and stops on SIGINT (for another device: `ffmpeg -f avfoundation -i :1 ...`) |
+| `NLS_STT` | a shell command that prints the text spoken in `"$NLS_WAV"` (another engine instead of whisper.cpp) |
+
+On macOS, the terminal app needs microphone access (System Settings →
+Privacy & Security → Microphone). macOS asks the first time.
 
 ### Completions and man page
 
@@ -488,6 +543,8 @@ Run `nls --list` to see all templates.
   runner-up or a low-confidence match, see above), and for a destructive
   command unless you add `--force`. A destructive command also gets its dry
   run first and needs a typed `y` (see [Destructive commands](#destructive-commands)).
+  A spoken request (`--listen`) is always confirmed, whatever the flags, and
+  what was heard is shown first.
 - Files and strings are always shell-quoted. jq string values are passed with
   `--arg`, never spliced into the jq program.
 - grep patterns are passed with `-e`, so a pattern starting with `-` is never

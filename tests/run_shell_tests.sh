@@ -6,7 +6,9 @@
 # installed; bash needs 4.0 or later (macOS ships 3.2).
 #
 # Cases below: shell<TAB>typed line<TAB>expected line after Ctrl+G
-# ("=" means: unchanged, as typed)[<TAB>"undo": press Ctrl+_ after Ctrl+G].
+# ("=" means: unchanged, as typed)[<TAB>"undo": press Ctrl+_ after Ctrl+G;
+# "voice": press the voice key (NLS_VOICE_KEY, Ctrl+X v) instead of Ctrl+G,
+# with a fake recorder and a transcript of "Undo the last two commits."].
 NL=$(cd "$(dirname "${1:-./nls}")" && pwd)/$(basename "${1:-./nls}")
 command -v python3 >/dev/null 2>&1 || { echo "shell tests: python3 not installed, skipped"; exit 0; }
 
@@ -15,6 +17,8 @@ trap 'rm -rf "$W"' EXIT
 # The widget runs `command nls`: put this build first on PATH as "nls".
 mkdir -p "$W/bin" "$W/home"
 ln -s "$NL" "$W/bin/nls"
+# --listen, for the voice cases: nothing is recorded, the transcript is fixed.
+export NLS_RECORD='printf x > "$NLS_WAV"' NLS_STT='echo "Undo the last two commits."'
 
 # Drive one interactive shell: load the widget and a dump binding, type the
 # line, press Ctrl+G then Ctrl+T, wait for the dump, quit.
@@ -25,6 +29,7 @@ shell, line, dump, bindir, home, extra = sys.argv[1:7]
 env = dict(os.environ, PATH=bindir + ":" + os.environ["PATH"], HOME=home, TERM="dumb",
            PS1="$ ", NLS_KEY="")
 env.pop("NLS_KEY")
+env["NLS_VOICE_KEY"] = "^Xv" if shell == "zsh" else "\\C-xv"
 if shell == "zsh":
     argv = ["zsh", "-f", "-i"]
     init = ("eval \"$(nls --shell zsh)\"; "
@@ -51,7 +56,10 @@ def send(s, wait=0.3):
 pump(0.5)
 send(init, 0.8)
 send(line, 0.3)
-send("\x07", 1.5)          # Ctrl+G: the widget
+if extra == "voice":
+    send("\x18v", 1.5)    # Ctrl+X v: the voice widget
+else:
+    send("\x07", 1.5)      # Ctrl+G: the widget
 if extra == "undo":
     send("\x1f", 0.5)      # Ctrl+_: undo
 send("\x14", 0.5)          # Ctrl+T: dump the line
@@ -96,12 +104,14 @@ zsh	nls tar 'compress src/ into b.tar.gz'	tar -czvf b.tar.gz src/
 zsh	gibberish blah blah	=
 zsh	cut input.mp4 from 00:10 to 00:25	=	undo
 zsh	nls ffmpeg resize video.mp4	=
+zsh	leftover text	git reset --soft HEAD~2	voice
 bash	cut input.mp4 from 00:10 to 00:25	ffmpeg -ss 00:10 -to 00:25 -i input.mp4 -c copy input_cut.mp4
 bash	git undo last commit	git reset --soft HEAD~1
 bash	nls jq pretty print data.json	jq . data.json
 bash	  nls tar "compress 'my files/' into b.tar.gz"	tar -czvf b.tar.gz 'my files/'
 bash	nls tar 'compress src/ into b.tar.gz'	tar -czvf b.tar.gz src/
 bash	gibberish blah blah	=
+bash	leftover text	git reset --soft HEAD~2	voice
 EOF
 [ -n "$skipped" ] && echo "shell tests: skipped (not installed, or bash < 4):$skipped"
 printf 'shell: %d passed, %d failed\n' "$pass" "$fail"

@@ -2,7 +2,10 @@
  * fuzz_nls.c — fuzz the lexer, matcher, expanders and --explain.
  *
  * Input: byte 0 picks the tool, the rest is the request (up to the first
- * NUL, at most NL_MAX_INPUT - 1 bytes). For each input the harness does
+ * NUL, at most NL_MAX_INPUT - 1 bytes). With byte 0's high bit set, the
+ * request is a --listen transcript: it goes through nl_voice_normalize()
+ * first, which must add no character but digits, '.', '/', '_', '-', '~'
+ * and spaces (check_voice()). For each input the harness does
  * what `nls <tool> "<request>"` does, minus running anything:
  *
  *   nl_lex -> nl_jq_compound (several jq conditions) or nl_match
@@ -24,6 +27,7 @@
 #define _POSIX_C_SOURCE 200809L   /* standalone driver: open, readdir, signal */
 #include "../../src/nl.h"
 
+#include <ctype.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -179,6 +183,20 @@ static void expand_one(const ParseContext *ctx, const CommandTemplate *tpl) {
     }
 }
 
+/* nl_voice_normalize() turns spoken words into digits and path
+ * punctuation, nothing else: a character in its output that wasn't in the
+ * transcript (in either case: "JSON" becomes json) must be one of those. */
+static void check_voice(const char *in, const char *out) {
+    bool seen[256] = { false };
+    for (const unsigned char *p = (const unsigned char *)in; *p; p++) seen[tolower(*p)] = true;
+    for (const unsigned char *p = (const unsigned char *)out; *p; p++)
+        if (!seen[tolower(*p)] && !strchr("0123456789./_-~ ", *p)) {
+            fprintf(stderr, "\nnls fuzz: normalizing added '%c' (0x%02x)\n  transcript: %s\n  normalized: %s\n",
+                    *p, *p, in, out);
+            abort();
+        }
+}
+
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size);
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
@@ -193,6 +211,12 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     if (n > sizeof prompt - 1) n = sizeof prompt - 1;
     memcpy(prompt, data + 1, n);
     prompt[n] = '\0';                        /* an embedded NUL ends it early */
+    if (data[0] & 0x80) {
+        static char heard[NL_MAX_INPUT];
+        if (!nl_voice_normalize(prompt, heard, sizeof heard)) return 0;
+        check_voice(prompt, heard);
+        memcpy(prompt, heard, strlen(heard) + 1);
+    }
 
     memset(&ctx, 0, sizeof ctx);
     if (!nl_lex(&ctx, tool, prompt, NULL)) return 0;

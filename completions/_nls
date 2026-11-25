@@ -22,6 +22,7 @@ _arguments -s -S -C \
   '(-y --yes)'{-y,--yes}'[with -x: do not ask, unless uncertain or destructive]' \
   '--force[with -x -y: do not ask for destructive commands either]' \
   '(-e --explain)'{-e,--explain}'[explain the command part by part]' \
+  '(-L --listen)'{-L,--listen}'[say the request instead of typing it]' \
   '(-v --verbose)'{-v,--verbose}'[show slots, tokens and template scores]' \
   '(- *)'{-l,--list}'[list the templates]:tool:->tool' \
   '(- *)--shell[print the shell integration]:shell:(zsh bash)' \

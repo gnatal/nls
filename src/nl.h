@@ -223,4 +223,13 @@ bool nl_url_ok(const char *s);
 #define NL_NO_EXPLANATION "(no explanation)"
 void nl_explain(const char *cmd, FILE *out);
 
+/* voice.c: --listen. Record a spoken request and transcribe it offline
+ * (whisper.cpp, or $NLS_RECORD / $NLS_STT), normalized into `out`. Returns
+ * 0, or the exit status after saying what went wrong (130: Ctrl+C). */
+int nl_listen(bool verbose, char *out, size_t size);
+/* Rewrite a transcript into words the lexer knows: "two" -> 2, "users dot
+ * json" -> users.json, "restore slash" -> restore/; fillers and "[BLANK_AUDIO]"
+ * dropped. False if it doesn't fit in `size`. */
+bool nl_voice_normalize(const char *in, char *out, size_t size);
+
 #endif /* NL_H */

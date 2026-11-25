@@ -29,9 +29,9 @@
 
 #define NL_TOOL_LIST "ffmpeg, jq, grep, find, tar, git, curl, magick"
 
-/* -x, -y, --force and --explain */
+/* -x, -y, --force, --explain and --listen */
 typedef struct {
-    bool exec, yes, force, explain;
+    bool exec, yes, force, explain, listen;
 } RunMode;
 
 static void usage(FILE *f) {
@@ -48,6 +48,8 @@ static void usage(FILE *f) {
         "                    or the command is destructive\n"
         "      --force       with -x -y: don't ask for destructive commands either\n"
         "  -e, --explain     explain the command part by part\n"
+        "  -L, --listen      say the request instead of typing it (transcribed\n"
+        "                    offline by whisper.cpp; -x then always asks first)\n"
         "  -v, --verbose     explain slots, tokens and template scores on stderr\n"
         "  -l, --list [tool] list available templates\n"
         "      --shell <zsh|bash>\n"
@@ -67,7 +69,8 @@ static void usage(FILE *f) {
         "  nls magick \"resize hero.png to width 800 convert to webp quality 85\"\n"
         "  nls \"convert demo.mov to gif\"          (tool inferred: ffmpeg)\n"
         "  nls --explain git \"squash the last 3 commits\"\n"
-        "  nls -x jq \"pretty print data.json\"\n");
+        "  nls -x jq \"pretty print data.json\"\n"
+        "  nls --listen                            (say: \"undo the last two commits\")\n");
 }
 
 static void list_templates(ToolId only) {
@@ -699,7 +702,8 @@ static int finish(const char *cmd, const Danger *danger, const char *dry, RunMod
     }
     fprintf(stderr, "\xe2\x86\x92 %s\n", cmd);
     if (mode.explain) nl_explain(cmd, stderr);
-    bool ask_first = !mode.yes || uncertain || (danger && !mode.force);
+    /* a misheard request must never run unseen: --listen always asks */
+    bool ask_first = !mode.yes || uncertain || mode.listen || (danger && !mode.force);
     if (!ask_first) return run_command(cmd);
 
     if (danger) {
@@ -713,7 +717,9 @@ static int finish(const char *cmd, const Danger *danger, const char *dry, RunMod
             }
         }
     }
-    if (mode.yes && uncertain)
+    if (mode.yes && mode.listen)
+        fprintf(stderr, "nls: not running a spoken request without confirmation (-y ignored)\n");
+    else if (mode.yes && uncertain)
         fprintf(stderr, "nls: not running an uncertain match without confirmation (-y ignored)\n");
     else if (mode.yes)
         fprintf(stderr, "nls: not running a destructive command without confirmation "
@@ -756,7 +762,28 @@ static const char ZSH_WIDGET[] =
     "  return 0\n"
     "}\n"
     "zle -N nls-widget\n"
-    "bindkey -- \"${NLS_KEY:-^G}\" nls-widget\n";
+    "bindkey -- \"${NLS_KEY:-^G}\" nls-widget\n"
+    "# Voice: set NLS_VOICE_KEY (e.g. '^[v' for Alt+V) before the eval, press it,\n"
+    "# say the request, press Enter: the line becomes the command.\n"
+    "nls-voice-widget() {\n"
+    "  emulate -L zsh\n"
+    "  local out err rc errf\n"
+    "  errf=$(mktemp \"${TMPDIR:-/tmp}/nls.XXXXXX\") || return 1\n"
+    "  zle -R \"nls: listening... press Enter to stop\"\n"
+    "  out=$(command nls --listen 2>\"$errf\" </dev/null)\n"
+    "  rc=$?\n"
+    "  err=$(<\"$errf\")\n"
+    "  command rm -f -- \"$errf\"\n"
+    "  if (( rc == 0 )) && [[ -n $out ]]; then\n"
+    "    BUFFER=$out\n"
+    "    CURSOR=${#BUFFER}\n"
+    "  fi\n"
+    "  zle -R\n"
+    "  [[ -n $err ]] && zle -M \"$err\"\n"
+    "  return 0\n"
+    "}\n"
+    "zle -N nls-voice-widget\n"
+    "if [[ -n ${NLS_VOICE_KEY-} ]]; then bindkey -- \"$NLS_VOICE_KEY\" nls-voice-widget; fi\n";
 
 static const char BASH_WIDGET[] =
     "# nls shell integration for bash (4.0 or later): eval \"$(nls --shell bash)\"\n"
@@ -779,6 +806,20 @@ static const char BASH_WIDGET[] =
     "    fi\n"
     "  }\n"
     "  bind -x \"\\\"${NLS_KEY:-\\\\C-g}\\\": _nls_widget\"\n"
+    "  # Voice: set NLS_VOICE_KEY (e.g. '\\ev' for Alt+V) before the eval, press it,\n"
+    "  # say the request, press Enter: the line becomes the command.\n"
+    "  _nls_voice_widget() {\n"
+    "    local out rc\n"
+    "    out=$(command nls --listen </dev/null)\n"
+    "    rc=$?\n"
+    "    if [ $rc -eq 0 ] && [ -n \"$out\" ]; then\n"
+    "      READLINE_LINE=$out\n"
+    "      READLINE_POINT=${#READLINE_LINE}\n"
+    "    fi\n"
+    "  }\n"
+    "  if [ -n \"${NLS_VOICE_KEY-}\" ]; then\n"
+    "    bind -x \"\\\"$NLS_VOICE_KEY\\\": _nls_voice_widget\"\n"
+    "  fi\n"
     "fi\n";
 
 static int print_shell(const char *shell) {
@@ -823,7 +864,7 @@ static int unsupported(const char *name) {
 }
 
 int main(int argc, char **argv) {
-    RunMode mode = { false, false, false, false };
+    RunMode mode = { false, false, false, false, false };
     bool verbose = false;
     int i = 1;
 
@@ -835,6 +876,7 @@ int main(int argc, char **argv) {
         else if (strcmp(a, "-y") == 0 || strcmp(a, "--yes") == 0) mode.yes = true;
         else if (strcmp(a, "--force") == 0) mode.force = true;
         else if (strcmp(a, "-e") == 0 || strcmp(a, "--explain") == 0) mode.explain = true;
+        else if (strcmp(a, "-L") == 0 || strcmp(a, "--listen") == 0) mode.listen = true;
         else if (strcmp(a, "-v") == 0 || strcmp(a, "--verbose") == 0) verbose = true;
         else if (strcmp(a, "-xy") == 0 || strcmp(a, "-yx") == 0) mode.exec = mode.yes = true;
         else if (strcmp(a, "-h") == 0 || strcmp(a, "--help") == 0) { usage(stdout); return 0; }
@@ -857,6 +899,28 @@ int main(int argc, char **argv) {
             usage(stderr);
             return 2;
         }
+    }
+
+    /* --listen: the request is spoken, at most the tool is typed. It then
+     * goes through the same steps as a typed one-argument request, so a
+     * tool said first ("git, undo the last commit") is the tool. */
+    static char heard[NL_MAX_INPUT];
+    char *heard_argv[2];
+    if (mode.listen) {
+        if (argc - i > 1 || (argc - i == 1 && nl_tool_from_name(argv[i]) == TOOL_UNKNOWN)) {
+            fprintf(stderr, "nls: with --listen the request is spoken; only a tool may follow "
+                            "(" NL_TOOL_LIST ")\n");
+            return 2;
+        }
+        int lrc = nl_listen(verbose, heard, sizeof heard);
+        if (lrc != 0) return lrc;
+        fprintf(stderr, "nls: heard: %s\n", heard);
+        int n = 0;
+        if (argc - i == 1) heard_argv[n++] = argv[i];
+        heard_argv[n++] = heard;
+        argv = heard_argv;
+        argc = n;
+        i = 0;
     }
 
     if (argc - i < 1) { usage(stderr); return 2; }

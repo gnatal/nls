@@ -5,6 +5,20 @@ The release workflow uses the section matching the tag as the release notes.
 
 ## [Unreleased]
 
+### Voice
+
+- `nls --listen` (`-L`) takes the request from the microphone, offline: it
+  records with sox (`rec`), `arecord` or `ffmpeg` and transcribes with
+  whisper.cpp (`whisper-cli`). Nothing is linked in, and none of it is
+  needed unless you use it. `NLS_RECORD` and `NLS_STT` replace either step.
+- The transcript is rewritten into words nls knows: spelled-out numbers
+  become digits, "users dot json" becomes `users.json`, "restore slash"
+  becomes `restore/`, and fillers and `[BLANK_AUDIO]` are dropped. What was
+  heard is printed on stderr.
+- With `-x`, a spoken request is always confirmed, even with `-y --force`.
+- The shell integration binds `nls --listen` to `NLS_VOICE_KEY` when it is
+  set: speak, press Enter, and the line becomes the command.
+
 ### Matching quality
 
 - Ties are no longer settled silently by template order. A close runner-up

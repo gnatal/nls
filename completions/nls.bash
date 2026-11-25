@@ -6,7 +6,7 @@ _nls() {
     cur=${COMP_WORDS[COMP_CWORD]}
     prev=${COMP_WORDS[COMP_CWORD-1]}
     local tools="ffmpeg jq grep find tar git curl magick"
-    local opts="-x --exec -y --yes --force -e --explain -v --verbose -l --list --shell
+    local opts="-x --exec -y --yes --force -e --explain -L --listen -v --verbose -l --list --shell
                 -h --help -V --version"
     COMPREPLY=()
 

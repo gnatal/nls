@@ -141,6 +141,14 @@ tests and git revisions. With
 .BR \-x ,
 the explanation goes to stderr with the command.
 .TP
+.BR \-L ", " \-\-listen
+Take the request from the microphone (see
+.BR VOICE ).
+Only a tool may follow. What was heard is printed on stderr first. With
+.BR \-x ,
+a spoken request is always confirmed, even with
+.BR "\-y \-\-force" .
+.TP
 .BR \-v ", " \-\-verbose
 On stderr: the extracted slots and words, every template's score, the
 dry run of a destructive command, and without a tool, every tool's score.
@@ -187,6 +195,56 @@ above it in bash; when no command can be made, the line stays as typed. In
 zsh, undo
 .RB ( Ctrl+_ )
 brings the request back.
+.PP
+With
+.B NLS_VOICE_KEY
+set before the
+.BR eval ,
+that key runs
+.B nls \-\-listen
+instead: say the request, press Enter, and the line becomes the command.
+.SH VOICE
+.B nls \-\-listen
+records the request and transcribes it offline. Nothing is linked into
+.BR nls :
+it runs a recorder that is installed
+.RB ( rec
+from sox,
+.BR arecord ,
+or
+.BR ffmpeg )
+and
+.B whisper\-cli
+from whisper.cpp with a ggml model (see
+.BR NLS_WHISPER_MODEL ).
+If one is missing,
+.B nls
+says how to get it. Any key stops the recording (Enter in a normal
+terminal); Ctrl+C aborts.
+.PP
+The transcript is rewritten into words
+.B nls
+knows: spelled-out numbers become digits
+.RI ( two
+\(-> 2,
+.I "one point five"
+\(-> 1.5),
+.I "users dot json"
+\(-> users.json,
+.I "get dot name"
+\(-> .name,
+.I "restore slash"
+\(-> restore/, and likewise
+.IR underscore ,
+.I dash
+and
+.IR tilde .
+Fillers and whisper's non\-speech tags
+.RB ( [BLANK_AUDIO] )
+are dropped. The result goes through the same steps as a typed request, so
+a tool said first
+.RI ( "git, undo the last commit" )
+is the tool.
 .SH DESTRUCTIVE COMMANDS
 Commands that delete or overwrite data, or rewrite a remote (find deletes,
 .BR "git reset \-\-hard" ,
@@ -216,6 +274,41 @@ syntax
 or readline syntax for bash
 .RI ( "\(aq\eC\-x\eC\-n\(aq" ).
 The default is Ctrl+G.
+.TP
+.B NLS_VOICE_KEY
+The key the shell integration binds to
+.B nls \-\-listen
+(same syntax as
+.BR NLS_KEY ),
+for example
+.I "\(aq^[v\(aq"
+(zsh) or
+.I "\(aq\eev\(aq"
+(bash) for Alt+V. Unset, there is no voice key.
+.TP
+.B NLS_WHISPER_MODEL
+The whisper.cpp model for
+.BR \-\-listen .
+By default the first of ggml\-base.en.bin, ggml\-small.en.bin,
+ggml\-tiny.en.bin, ... found in
+.IR ${XDG_DATA_HOME:\-~/.local/share}/nls/ .
+.TP
+.B NLS_LISTEN_SECONDS
+The longest recording, 1 to 300 seconds (default 10).
+.TP
+.B NLS_RECORD
+A shell command that records 16 kHz mono WAV to
+.I \(dq$NLS_WAV\(dq
+for at most
+.B $NLS_LISTEN_SECONDS
+and stops on SIGINT, instead of the recorder
+.B nls
+picks.
+.TP
+.B NLS_STT
+A shell command that prints the text spoken in
+.IR \(dq$NLS_WAV\(dq ,
+instead of whisper.cpp.
 .SH EXIT STATUS
 .TP
 .B 0
@@ -233,7 +326,9 @@ Usage error: an unknown option or tool, or a request that is too long.
 .B 130
 With
 .BR \-x :
-the confirmation was declined.
+the confirmation was declined. With
+.BR \-\-listen :
+the recording was aborted with Ctrl+C.
 .PP
 Otherwise, with
 .BR \-x ,
@@ -250,6 +345,7 @@ nls magick "resize hero.png to width 800 convert to webp quality 85"
 nls "extract backup.tar.gz into restore/"
 nls \-\-explain git "squash the last 3 commits"
 nls \-x jq "pretty print data.json"
+nls \-\-listen                  # then say: "undo the last two commits"
 curl \-s https://api.example.com/users | eval "$(nls jq 'list .email of each user')"
 .EE
 .PP

@@ -56,7 +56,7 @@ nls: $(SRC) $(HDR) .build-version
 # Every suite, in order; each takes the binary to test. The execution
 # suites skip tools that aren't installed.
 TESTS := run_tests run_warn_tests run_x_tests run_infer_tests run_paraphrase_tests \
-         run_explain_tests run_shell_tests run_completion_tests \
+         run_explain_tests run_shell_tests run_completion_tests run_voice_tests \
          run_jq_exec run_grep_exec run_find_exec run_tar_exec run_git_exec \
          run_curl_exec run_magick_exec run_ffmpeg_exec
 
