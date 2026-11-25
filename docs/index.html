@@ -401,6 +401,22 @@
     </div>
   </section>
 
+  <section id="shell">
+    <div class="wrap">
+      <p class="kicker">In your shell</p>
+      <h2>You don't have to name the tool</h2>
+      <p class="sub">
+        Leave the tool out and <code>nls</code> picks the one that fits: <code>nls "convert demo.mov to gif"</code> gives an ffmpeg command.
+        Tab completes flags and tool names in bash and zsh. With <code>eval "$(nls --shell zsh)"</code> in your rc file,
+        you can type a request on the command line and press <kbd>Ctrl+G</kbd>. The request is replaced by the command, ready to read and edit before you run it.
+      </p>
+      <div class="term demo" style="margin-top:32px">
+        <div class="term-bar"><i></i><i></i><i></i><b>tool inference · Tab completion · Ctrl+G</b></div>
+        <img src="nls-infer-completion.gif" alt="Terminal recording: nls choosing the tool on its own, Tab completion of tools and flags, and Ctrl+G turning a typed request into a command" width="1300" height="700" loading="lazy">
+      </div>
+    </div>
+  </section>
+
   <section>
     <div class="wrap">
       <p class="kicker">Why no LLM</p>
