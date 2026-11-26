@@ -155,6 +155,11 @@ wasm-docker:
 test-wasm: nls
 	node tests/wasm_parity.cjs ./nls $(WASM_DIR)/nls.js
 
+# The landing page's "nls vs an LLM helper" race: the commands it shows must
+# be what ./nls prints and pass shellcheck (PATH, else docker); needs node.
+test-race: nls
+	node tests/race_check.cjs ./nls
+
 test-ffmpeg: nls
 	sh tests/run_ffmpeg_exec.sh ./nls
 
@@ -219,4 +224,4 @@ clean:
 	rm -f nls .build-version
 	rm -rf dist build
 
-.PHONY: test test-paraphrase test-sanitize fuzz fuzz-check wasm wasm-docker test-wasm test-ffmpeg test-magick install uninstall version build-version release dist clean
+.PHONY: test test-paraphrase test-sanitize fuzz fuzz-check wasm wasm-docker test-wasm test-race test-ffmpeg test-magick install uninstall version build-version release dist clean

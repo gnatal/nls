@@ -96,3 +96,10 @@ jobs:
 
       - name: A fresh build with the pinned Emscripten matches too
         run: make wasm-docker && make test-wasm
+
+      # The race on the landing page says every nls command it shows passes
+      # shellcheck (preinstalled on ubuntu-24.04); here it must.
+      - name: The landing page's race matches ./nls and passes shellcheck
+        run: make test-race
+        env:
+          NLS_REQUIRE_SHELLCHECK: 1

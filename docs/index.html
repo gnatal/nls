@@ -181,6 +181,29 @@
   .play-note { color: var(--dim); font-size: 14px; max-width: 46em; margin: 14px auto 34px; text-wrap: pretty; }
   .play-note code { font-size: .92em; }
 
+  /* the race: the real nls (wasm) against a simulated LLM helper */
+  .race { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 14px; }
+  @media (max-width: 860px) { .race { grid-template-columns: 1fr; } }
+  .race > * { min-width: 0; }
+  .race .term { display: flex; flex-direction: column; }
+  .race-out {
+    height: 31em; overflow: auto; padding: 16px 18px; color-scheme: dark;
+    font: 13px/1.6 var(--mono);
+  }
+  .race-out div { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .race-out .gap { height: .7em; }
+  .race-out .x { color: var(--text); }
+  .race-out .w { color: var(--prompt); }
+  .race-foot {
+    display: flex; align-items: center; gap: 8px; min-height: 2.6em;
+    padding: 9px 16px; border-top: 1px solid #1d2128; background: #111419;
+    font: 12.5px/1.4 var(--mono); color: #9aa3ae;
+  }
+  .race-foot.done { color: #e6e8eb; }
+  .race-ctl { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 40px; }
+  .race-ctl .btn { padding: 9px 18px; font-size: 15px; cursor: pointer; }
+  .race-ctl p { margin: 0; color: var(--dim); font-size: 14px; flex: 1; min-width: 16em; text-wrap: pretty; }
+
   /* sections */
   section { padding: 84px 0; }
   section + section { border-top: 1px solid var(--line); }
@@ -496,14 +519,77 @@
     </div>
   </section>
 
-  <section>
+  <section id="race">
     <div class="wrap">
       <p class="kicker">Why no LLM</p>
       <h2>It does fewer things, but it gets them right</h2>
       <p class="sub">
         AI command generators can handle anything, but they need a network, take seconds, and sometimes invent flags.
-        <code>nls</code> covers eight tools and treats each one carefully.
+        <code>nls</code> covers eight tools and treats each one carefully. Here are ten requests that are easy to get wrong.
       </p>
+
+      <div class="race" aria-live="off">
+        <div class="term">
+          <div class="term-bar"><i></i><i></i><i></i><b>nls · running in your browser</b></div>
+          <div class="race-out" id="race-nls"></div>
+          <div class="race-foot" id="race-nls-foot">ready</div>
+        </div>
+        <div class="term">
+          <div class="term-bar"><i></i><i></i><i></i><b>a typical LLM CLI helper · simulated</b></div>
+          <div class="race-out" id="race-llm"></div>
+          <div class="race-foot" id="race-llm-foot">ready</div>
+        </div>
+      </div>
+      <div class="race-ctl">
+        <button class="btn primary" id="race-go">Start the race</button>
+        <p>
+          The left pane is the real <code>nls</code>, the same WebAssembly build as the playground above, timed in your browser.
+          The right pane is a simulation, not a recording of any product: its answers are mistakes LLM command
+          generators are known to make, and its waits are a typical 1–4 s round trip to a hosted model.
+          These ten prompts were picked because they're easy to get wrong; on everyday requests LLM helpers do much better.
+          Every <code>nls</code> command here passes <code>shellcheck</code>.
+        </p>
+      </div>
+<script type="application/json" id="race-data">
+[
+  {"tool": "git", "prompt": "undo last 2 commits keep changes staged",
+   "nls": "git reset --soft HEAD~2",
+   "llm": "git reset --soft HEAD~2", "verdict": "ok", "ms": 3400},
+  {"tool": "find", "prompt": "files larger than 5MB ignoring node_modules",
+   "nls": "find . -path '*/node_modules' -prune -o -type f -size +5M -print",
+   "llm": "find . -type d -name node_modules -prune -o -type f -size +5M -print", "verdict": "ok", "ms": 1900},
+  {"tool": "tar", "prompt": "extract release-1.0.tgz into dist/ without the top-level folder",
+   "nls": "tar -xzvf release-1.0.tgz -C dist/ --strip-components=1",
+   "llm": "tar -xzf release-1.0.tgz -C dist/ --strip-top-level", "verdict": "bad",
+   "why": "invented flag: tar has no --strip-top-level (it's --strip-components=1)", "ms": 2300},
+  {"tool": "curl", "prompt": "delete https://api.example.com/users/42 with token $TOKEN",
+   "nls": "curl -sS -X DELETE -H \"Authorization: Bearer $TOKEN\" 'https://api.example.com/users/42'",
+   "llm": "curl -X DELETE -H 'Authorization: Bearer $TOKEN' https://api.example.com/users/42", "verdict": "bad",
+   "why": "single quotes send the literal text $TOKEN, not your token (shellcheck SC2016)", "ms": 2700},
+  {"tool": "grep", "prompt": "list files not containing 'license' in src/",
+   "nls": "grep -rLE -e license src/",
+   "llm": "grep -rlv license src/", "verdict": "bad",
+   "why": "-lv lists every file with one line that isn't 'license': nearly all of them", "ms": 2100},
+  {"tool": "find", "prompt": "delete all node_modules directories",
+   "nls": "find . -mindepth 1 -type d -name node_modules -prune -exec rm -rf {} +",
+   "llm": "find . -type d -name node_modules -exec rm -rf {} +", "verdict": "warn",
+   "why": "deletes right away: no dry run, no confirmation", "ms": 2500},
+  {"tool": "jq", "prompt": "get names from users.json where age > 30",
+   "nls": "jq 'map(select(.age > 30) | .name)' users.json",
+   "llm": "jq '.[] | select(.age > 30) | .name' users.json", "verdict": "ok", "ms": 1800},
+  {"tool": "ffmpeg", "prompt": "make a gif from demo.mp4 between 2 and 5 seconds",
+   "nls": "ffmpeg -ss 2 -to 5 -i demo.mp4 -vf 'fps=10,scale=480:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse' -loop 0 demo.gif",
+   "llm": "ffmpeg -ss 2 -t 3 -i demo.mp4 -vf \"fps=10,scale=480:-1\" demo.gif", "verdict": "ok", "ms": 3100},
+  {"tool": "git", "prompt": "commits on feature-login not on main",
+   "nls": "git log --oneline main..feature-login",
+   "llm": "git log main..feature-login --oneline", "verdict": "ok", "ms": 1600},
+  {"tool": "magick", "prompt": "shrink hero.png to 1920x1080 only if larger",
+   "nls": "magick hero.png -resize '1920x1080>' hero_resized.png",
+   "llm": "convert hero.png -resize 1920x1080> hero_resized.png", "verdict": "bad",
+   "why": "the unquoted > is a redirect: the shell writes an empty hero_resized.png and convert gets no output file", "ms": 2400}
+]
+</script>
+
       <div class="grid">
         <div class="card"><div class="stat">~2<small> ms</small></div><h3>Instant</h3><p>That includes starting the process. You won't wait on a spinner.</p></div>
         <div class="card"><div class="stat">0<small> requests</small></div><h3>Private</h3><p>Your file names and data never leave your machine. It needs no API key and works on a plane.</p></div>
@@ -751,16 +837,22 @@
       copyBtn.disabled = !cmd;
     }
 
-    async function start() {
+    const pills = [...document.querySelectorAll('#play-pills .pill')];
+    // One instance, shared with the race below.
+    window.nlsReady = (async () => {
       if (typeof WebAssembly !== 'object' || typeof createNls !== 'function') throw new Error('no WebAssembly');
-      nls = await createNlsRunner(createNls, { locateFile: f => 'wasm/' + f });
-      nls.FS.mkdirTree('/home/you/src');
-      nls.FS.mkdirTree('/home/you/logs');
-      for (const [p, text] of Object.entries(DEMO)) nls.FS.writeFile('/home/you/' + p, text);
-      nls.FS.chdir('/home/you');
+      const m = await createNlsRunner(createNls, { locateFile: f => 'wasm/' + f });
+      m.FS.mkdirTree('/home/you/src');
+      m.FS.mkdirTree('/home/you/logs');
+      for (const [p, text] of Object.entries(DEMO)) m.FS.writeFile('/home/you/' + p, text);
+      m.FS.chdir('/home/you');
       // Warm up, so the badge shows the compiled wasm, not its first, cold runs.
-      const pills = [...document.querySelectorAll('#play-pills .pill')];
-      for (let k = 0; k < 3; k++) for (const p of pills) nls.run(['--', p.dataset.q]);
+      for (let k = 0; k < 3; k++) for (const p of pills) m.run(['--', p.dataset.q]);
+      return m;
+    })();
+
+    async function start() {
+      nls = await window.nlsReady;
 
       const q = new URLSearchParams(location.search).get('q');
       input.value = q || pills[0].dataset.q;
@@ -783,6 +875,135 @@
       show([["The playground couldn't load in this browser. The examples below are real output.", 'c']]);
       setBadge('offline', '', false);
     });
+  })();
+
+  /* The race. Left: the playground's nls, each request run as
+   * `nls <tool> "<request>"`, the batch timed as a whole. Right: canned
+   * answers (race-data's "llm") after canned waits ("ms"); nothing is sent
+   * anywhere. tests/race_check.cjs checks that race-data's "nls" is still
+   * what nls prints, and that it passes shellcheck. */
+  (() => {
+    const $ = id => document.getElementById(id);
+    const RACE = JSON.parse($('race-data').textContent);
+    const nOut = $('race-nls'), lOut = $('race-llm'), nFoot = $('race-nls-foot'), lFoot = $('race-llm-foot');
+    const go = $('race-go');
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const SPIN = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏';
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    const secs = ms => `${(ms / 1000).toFixed(1)} s`;
+    let race = 0, skip = false, state = 'idle';
+
+    function add(pane, parts) {
+      const d = document.createElement('div');
+      for (const [text, cls] of parts) {
+        const s = document.createElement('span');
+        if (cls) s.className = cls;
+        s.textContent = text;
+        d.append(s);
+      }
+      pane.append(d);
+      return d;
+    }
+    const gap = pane => { const d = document.createElement('div'); d.className = 'gap'; pane.append(d); };
+    const quoted = p => p.includes('$') ? `'${p}'` : `"${p}"`;
+    const ask = (pane, bin, r) => add(pane, [['$ ', 'p'], [`${bin} ${bin === 'nls' ? r.tool + ' ' : ''}`, ''], [quoted(r.prompt), 's']]);
+    function foot(el, text, done) { el.textContent = text; el.classList.toggle('done', !!done); }
+    function setGo(s) {
+      state = s;
+      go.textContent = s === 'running' ? 'Skip to the end' : s === 'done' ? 'Race again' : 'Start the race';
+    }
+
+    async function nlsSide(id) {
+      nOut.replaceChildren();
+      foot(nFoot, 'loading nls.wasm…');
+      let nls = null;
+      try { nls = await window.nlsReady; } catch { /* the recorded output below */ }
+      if (id !== race) return;
+      await sleep(250);   // a beat, so the eye sees both start
+      if (id !== race) return;
+      let res, us = 0;
+      if (nls) {
+        const batch = () => RACE.map(r => nls.run([r.tool, r.prompt]));
+        res = batch();
+        // Time the whole batch, repeated until the clock has something to measure.
+        let n = 0, dt;
+        const t0 = performance.now();
+        do { batch(); n++; dt = performance.now() - t0; } while (dt < 4 && n < 200);
+        us = dt * 1000 / n;
+      }
+      RACE.forEach((r, i) => {
+        if (i) gap(nOut);
+        ask(nOut, 'nls', r);
+        const out = res ? res[i].out.replace(/\n$/, '') : r.nls;
+        if (res && res[i].rc !== 0) {
+          for (const l of res[i].err.replace(/\n$/, '').split('\n')) add(nOut, [[l, 'e']]);
+          return;
+        }
+        add(nOut, [[out, 'o']]);
+        // What -x adds before a destructive command runs (-v prints it too).
+        const v = nls ? nls.run(['-v', r.tool, r.prompt]).err.split('\n') : [];
+        const danger = v.find(l => l.startsWith('destructive: '));
+        const dry = v.find(l => l.startsWith('dry run: '));
+        if (danger) {
+          add(nOut, [['with -x: ', 'c'], [danger, 'e']]);
+          if (dry) add(nOut, [['         ', ''], [dry, 'c']]);
+          add(nOut, [['         [type y to run / Enter to abort]', 'c']]);
+        }
+      });
+      const ok = res ? res.filter(x => x.rc === 0).length : RACE.length;
+      // A clock that didn't move (a frozen or coarse timer) gets no number.
+      const t = !(us > 0) ? '' : ` in ${us < 1000 ? `${Math.round(us)} µs` : `${(us / 1000).toFixed(1)} ms`}`;
+      foot(nFoot, nls
+        ? `✓ ${ok} of ${RACE.length}${t} · 0 network requests · all pass shellcheck`
+        : `recorded output: WebAssembly didn't load in this browser`, true);
+    }
+
+    async function llmSide(id) {
+      lOut.replaceChildren();
+      let total = 0, wrong = 0, unsafe = 0, f = 0;
+      for (const [i, r] of RACE.entries()) {
+        if (i) gap(lOut);
+        ask(lOut, 'ai', r);
+        const spin = add(lOut, [['', 'c']]).firstChild;
+        const t0 = performance.now();
+        for (;;) {
+          if (id !== race) return;
+          const el = skip ? r.ms : Math.min(r.ms, performance.now() - t0);
+          spin.textContent = `${reduce ? '…' : SPIN[f++ % SPIN.length]} waiting for the model ${secs(el)}`;
+          foot(lFoot, `request ${i + 1} of ${RACE.length} · ${secs(total + el)}`);
+          if (el >= r.ms) break;
+          await sleep(80);
+        }
+        total += r.ms;
+        spin.parentNode.remove();
+        add(lOut, [[r.llm, 'x']]);
+        if (r.verdict === 'bad') { wrong++; add(lOut, [['✗ ' + r.why, 'e']]); }
+        else if (r.verdict === 'warn') { unsafe++; add(lOut, [['⚠ ' + r.why, 'w']]); }
+        else add(lOut, [['✓ ok', 'c']]);
+        lOut.scrollTop = lOut.scrollHeight;
+      }
+      foot(lFoot, `${RACE.length} answers in ${secs(total)} · ${wrong} wrong · ${unsafe} delete without a preview`, true);
+    }
+
+    async function start() {
+      const id = ++race;
+      skip = false;
+      setGo('running');
+      nOut.scrollTop = 0;
+      await Promise.all([nlsSide(id), llmSide(id)]);
+      if (id === race) setGo('done');
+    }
+    go.addEventListener('click', () => {
+      if (state === 'running') skip = true;
+      else start();
+    });
+    // Starts on its own the first time it scrolls into view (not with reduced motion).
+    if (!reduce && 'IntersectionObserver' in window) {
+      const io = new IntersectionObserver(es => {
+        if (es.some(e => e.isIntersecting) && state === 'idle') { io.disconnect(); start(); }
+      }, { threshold: 0.35 });
+      io.observe($('race-llm'));
+    }
   })();
 
   const notes = {

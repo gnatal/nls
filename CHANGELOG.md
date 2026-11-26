@@ -149,6 +149,11 @@ First release.
   WebAssembly (`make wasm`, about 100 KB gzipped) runs in the browser on
   every keystroke, with example prompts, `--explain` and the time each
   compile takes. Nothing is sent anywhere.
+- The landing page races nls against a typical LLM CLI helper on ten
+  requests that are easy to get wrong. The nls side is the WebAssembly build,
+  timed in the browser; the other side is a labelled simulation with typical
+  mistakes (an invented tar flag, `$TOKEN` in single quotes, `grep -lv`, an
+  unquoted `>`) and 1–4 s waits.
 
 ### Testing
 
@@ -166,3 +171,5 @@ First release.
   what the native binary prints (stdout, stderr, exit code) for every prompt
   in the test suites, called as `nls tool "..."`, `nls -- "..."`,
   `--explain` and `-v`. CI runs it on the committed build and on a fresh one.
+- `make test-race`: the race's nls commands must be what `./nls` prints
+  and pass shellcheck.

@@ -76,13 +76,15 @@ make fuzz         # coverage-guided libFuzzer run for FUZZ_TIME=60 seconds
 make wasm-docker  # rebuild the landing page's playground (docs/wasm/) with
                   # Emscripten in Docker (`make wasm` if emcc is installed)
 make test-wasm    # that build must print what ./nls prints (needs node)
+make test-race    # the landing page's race shows what ./nls prints, and
+                  # every command passes shellcheck (needs node)
 make install  # installs to ~/.local/bin/nls (no sudo needed), plus the man
               # page and completions under ~/.local/share
 ```
 
 CI (`.github/workflows/ci.yml`) runs `make test` on Linux and macOS for every
-push and pull request, plus `make test-sanitize`, a two-minute `make fuzz` and
-`make test-wasm`.
+push and pull request, plus `make test-sanitize`, a two-minute `make fuzz`, `make test-wasm` and
+`make test-race`.
 
 The fuzzer (`tests/fuzz/fuzz_nls.c`) feeds each input through the lexer,
 matcher, every expandable template, its dry run and `--explain`. Besides
