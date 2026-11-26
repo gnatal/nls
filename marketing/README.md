@@ -10,6 +10,8 @@ numbers change as templates are added.
 | `launch-posts.md` | Ready-to-edit posts: Show HN, Reddit, X/Bluesky thread, LinkedIn |
 | `demo.tape` | [VHS](https://github.com/charmbracelet/vhs) script that records the terminal demo GIF |
 | `infer-completion.tape` | VHS script for `docs/nls-infer-completion.gif` (tool inference, `-v`, Tab completion, Ctrl+G), shown in the main README |
+| `race.tape` | VHS script for `nls-race.gif`: the landing page's race in a split terminal, the real nls (ten processes, timed) beside a labelled simulation of an LLM CLI helper (1–4 s waits, an invented tar flag, `'$TOKEN'`, `grep -lv`, an unquoted `>`). For the launch post |
+| `race.cjs` | The split-screen race itself (`node ../race.cjs ../../nls` from `marketing/demo/`; any key quits). Its requests and simulated answers come from `#race-data` in `docs/index.html`, which `make test-race` checks |
 | `make-demo-media.sh` | Generates royalty-free demo files (`talk.mp4`, `demo.mp4`, `users.json`, a small `src/` tree, `app.log`, plus old logs, big files, `node_modules/` and `.DS_Store` clutter for the find demo, `.git/`, `node_modules/` and a `release-1.0.tgz` for the tar demo, a `project/` git repo with two authors and a feature branch for the git demo, and a `data.json` body for the curl demo, and `hero.png`, `sprite.png` and `frames/` drawn with ImageMagick for the magick demo) |
 
 ---
@@ -454,6 +456,7 @@ Wording rules:
 - [ ] Public repo with the README and a license file (pick one: MIT is common for CLIs)
 - [ ] Record the GIF: `sh marketing/make-demo-media.sh && vhs marketing/demo.tape`
 - [ ] Put the GIF at the top of the main README
+- [ ] Record the race: `vhs marketing/race.tape` (after the demo media), for the Show HN / X post
 - [ ] Install instructions work on a fresh machine (`make install`, PATH note)
 - [ ] A Homebrew tap (`brew install <you>/tap/nls`) lowers friction a lot
 - [ ] Use only royalty-free media in demos. `make-demo-media.sh` generates
